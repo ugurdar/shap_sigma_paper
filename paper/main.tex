@@ -17,6 +17,7 @@
 
 \title{SHAP-$\sigma$: A Label-Free Rashomon Pipeline\\for Multivariate Time-Series Anomaly Detection\\
 \thanks{The \textit{Rashomon-based Uncertainty-Aware Explainable AI for Time Series} has received funding from the European Union, via the OC4-2025-TES-02 issued and implemented by the ENFIELD project, under the grant agreement No 101120657.}
+\thanks{Code and data for full reproducibility: \texttt{https://github.com/ugurdar/shap\_sigma\_paper}.}
 }
 
 \author{\IEEEauthorblockN{Ugur Dar$^{1*}$, Sara Malacarne$^{2}$, Mustafa Cavus$^{1}$, Jeriek Van den Abeele$^{2}$}
@@ -72,11 +73,12 @@ detectors~\cite{MaZhao2023}.
 This selection problem is sharpened by the \emph{Rashomon
 effect}~\cite{Breiman2001}: for any non-trivial task, a multiplicity
 of near-optimal models exists, each making different
-errors~\cite{Semenova2022,Fisher2019}. We argue that this disagreement
-is not noise to be averaged away but a signal to be exploited. If
-several near-optimal detectors concur on \emph{why} a point is
-anomalous, the verdict is more credible than if their attributions
-diverge.
+errors~\cite{Semenova2022,Fisher2019}. We argue that this attribution
+disagreement is not noise to be averaged away but a signal to be
+exploited: at a flagged point, the spread of attributions across the
+Rashomon set indicates that at least one detector commits to a
+feature-level explanation, providing second-source evidence beyond
+the anchor's score.
 
 Prior label-free model selection has explored three avenues.
 Excess-Mass and Mass-Volume curves~\cite{Goix2016} give geometry-based
@@ -96,7 +98,7 @@ de facto post-hoc explainer for anomaly detection, mostly to explain a
 single chosen model; the closest precedent is Levy et
 al.~\cite{Levy2026}, who use SHAP attributions for ensemble member
 \emph{selection} in supervised tabular AD, whereas we use cross-detector
-SHAP standard deviation as a confidence \emph{filter} in the
+SHAP standard deviation as an attribution-evidence \emph{gate} in the
 unsupervised TS regime. Modern deep TS-AD
 methods~\cite{Audibert2020,Tuli2022,Xu2022,Yang2023} likewise commit
 to a single architecture. Outlier ensemble
@@ -145,9 +147,9 @@ small subset $\mathcal{R}\subseteq\mathcal{D}$ of detectors from a pool
 $\mathcal{D}$ by jointly optimising label-free quality and pairwise
 diversity, explains every member of $\mathcal{R}$ with a tree
 surrogate, takes TreeSHAP attributions~\cite{Lundberg2017,Lundberg2020},
-and converts the cross-detector disagreement of those attributions
-into a per-point, per-feature confidence gate. Labels are used nowhere
-in training, ranking, or set selection.
+and converts the cross-detector spread of those attributions into a
+per-point, per-feature attribution-evidence gate. Labels are used
+nowhere in training, ranking, or set selection.
 
 \subsection{Notation}
 Let $X_{\mathrm{tr}}\!\in\!\mathbb{R}^{N_{\mathrm{tr}}\times p}$,
@@ -272,7 +274,7 @@ $\varepsilon{=}10^{-12}$. Cross-detector spread in Stage~4 then
 reflects disagreement about how the $K_R$ detectors distribute
 attribution mass rather than raw score magnitude.
 
-\subsection{Stage 4 -- The SHAP-$\sigma$ Confidence Filter}
+\subsection{Stage 4 -- The SHAP-$\sigma$ Attribution-Evidence Gate}
 \label{sec:sigma}
 The disagreement signal is the cross-detector standard deviation of
 the normalised attributions over the $K_R$ members of the Rashomon
@@ -509,14 +511,11 @@ on both ($+1.8$ pts on SMD, $+3.0$ pts on UCR) and the point-adjusted
 $F_1$ defined in Sec.~\ref{sec:exp} ($+6.4$ pts on SMD, $+3.2$ pts on
 UCR). Point-level recall drops relative to the uniformly-best
 singleton -- the expected behaviour of the recall-monotone filter
-Eq.~\eqref{eq:final} -- but the much smaller PA-$F_1$ gap and its
-positive sign on SMD show that the suppressed points typically lie
-inside still-flagged anomaly intervals, i.e.\ the filter trims
-spurious within-event activations rather than missing entire events. The disproportionate
-PA-$F_1$ gain on SMD shows that the $\sigma$ filter retains the
-within-event flags backed by attribution evidence and discards the
-rest, with only limited loss of anomaly intervals -- the metric a
-practitioner would optimise.
+Eq.~\eqref{eq:final} -- but the much smaller PA-$F_1$ gap on SMD,
+which is in fact positive, shows that the discarded points typically
+lie inside still-flagged anomaly intervals: the $\sigma$ gate trims
+flagged points that lack attribution evidence rather than missing
+entire events, the metric a practitioner would optimise.
 
 \paragraph{Isolating the contribution of the $\sigma$ filter.}
 To separate the gain from \emph{detector selection} and from the
@@ -582,7 +581,7 @@ Selected anchors: TELCO ECOD+HBOS; SMD $(5,\text{Q})$ COPOD on $23/28$,
 PCA on rest; UCR $(2,\text{M})$ GMM $50/100$, PCA $18$, LOF $15$, IF
 $7$, HBOS $5$, KNN $5$. $^{\dagger}$~Ablation only.
 $^{\ddagger}$~$4$ UCR series omitted (GMM did not converge).
-Recall values are given in Sec.~\ref{sec:res-summary}.
+Recall trade-off described qualitatively in Sec.~\ref{sec:res-summary}.
 \end{flushleft}
 \end{table}
 
@@ -605,8 +604,8 @@ an extended journal version.
 
 We presented SHAP-$\sigma$, a label-free anomaly detection pipeline
 that promotes the cross-detector standard deviation of SHAP
-attributions from a post-hoc explanation into a first-class confidence
-signal. The methodological contributions are two: a closed-form
+attributions from a post-hoc explanation into a first-class
+attribution-evidence signal. The methodological contributions are two: a closed-form
 Rashomon pair score, $\frac{q_i+q_j}{2}(1-\rho_{ij})$, that jointly
 rewards a label-free Mass--Volume quality proxy and pairwise Spearman diversity;
 and a per-feature $\sigma$ gate that filters anchor flags by the
