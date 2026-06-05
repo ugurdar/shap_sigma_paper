@@ -503,19 +503,17 @@ exposes when the configuration is left unspecified. A per-dataset
 $(K_R,\mathcal{S})$ choice would be label-aware tuning and is reported
 only as a row labelled \emph{best, post-hoc}, not as the headline
 result. The default $(2,\text{Mixed})$ exceeds the uniformly-best singleton in
-mean point-level $F_1$ on UCR (two-sided paired Wilcoxon
-$p{=}1.8{\times}10^{-3}$, rank-biserial $r{=}{+}0.47$) but trails it
-on SMD ($F_1{=}0.104$ vs $0.150$, $p{=}0.22$). On the practitioner-
-relevant point-adjusted metric, however, the default \emph{exceeds}
-the singleton on both ($+7.0$ pts on SMD, $+3.2$ pts on UCR), and
-the post-hoc-best SMD configuration $(K_R{=}5,\text{Q})$ raises
-point-level $F_1$ above the singleton as well ($0.160$ vs $0.150$).
-Point-level recall drops on SMD (the expected behaviour of the
-recall-monotone filter Eq.~\eqref{eq:final}), but the positive
-PA-$F_1$ gap shows the discarded points lie inside still-flagged
-anomaly intervals: the $\sigma$ gate trims within-event activations
-that lack attribution evidence rather than missing entire events,
-the metric a practitioner would optimise.
+mean point-level $F_1$ on UCR ($p{=}1.8{\times}10^{-3}$,
+rank-biserial $r{=}{+}0.47$) but trails it on SMD ($F_1{=}0.104$ vs
+$0.150$, $p{=}0.22$). On the practitioner-relevant point-adjusted
+metric the default \emph{exceeds} the singleton on both ($+7.0$ pts
+on SMD, $+3.2$ pts on UCR), and the post-hoc SMD configuration
+$(K_R{=}5,\text{Q})$ also overtakes the singleton at the point level
+($0.160$ vs $0.150$). The lower point-level recall on SMD (Table
+column $R$) reflects the recall-monotone filter; the positive PA-$F_1$
+gap shows the discarded points lie inside still-flagged anomaly
+intervals, so the $\sigma$ gate trims unsupported within-event
+activations rather than missing entire events.
 
 \paragraph{Isolating the contribution of the $\sigma$ filter.}
 To separate the gain from \emph{detector selection} and from the
@@ -563,18 +561,18 @@ $(K_R{=}2,\mathcal{S}{=}\text{Mixed})$ from Algorithm~1.
 \emph{Best$^{\dagger}$}: post-hoc best, ablation only. Paired
 Wilcoxon two-sided.}
 \label{tab:summary}
-\footnotesize
-\setlength{\tabcolsep}{3pt}
-\begin{tabular}{lccccccc}
+\scriptsize
+\setlength{\tabcolsep}{2pt}
+\begin{tabular}{lcccccccc}
 \toprule
-& \multicolumn{2}{c}{Singleton} & \multicolumn{4}{c}{SHAP-$\sigma$} & \\
-\cmidrule(lr){2-3}\cmidrule(lr){4-7}
-Dataset (cfg) & det. & $F_1$ & $(K_R,\mathcal{S})$ & $F_1$ & PA-$F_1$ & P & $p$ \\
+& \multicolumn{2}{c}{Singleton} & \multicolumn{5}{c}{SHAP-$\sigma$} & \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-8}
+Dataset (cfg) & det. & $F_1$ & $(K_R,\mathcal{S})$ & $F_1$ & PA-$F_1$ & P & R & $p$ \\
 \midrule
-TELCO (Def.)                       & ECOD & .401 & $(2,\text{M})$ & \textbf{.440} & --- & .641 & --- \\
-SMD ($n{=}28$, Def.)               & KNN  & .150 & $(2,\text{M})$ & .104 & \textbf{.424} & .138 & .22 \\
-SMD ($n{=}28$, Best$^{\dagger}$)   & KNN  & .150 & $(5,\text{Q})$ & \textbf{.160} & .454 & .224 & --- \\
-UCR ($n{=}100$, Def.)              & GMM  & .138 & $(2,\text{M})$ & \textbf{.169} & \textbf{.288} & .143 & $1.8{\times}10^{-3}$ \\
+TELCO (Def.)                       & ECOD & .401 & $(2,\text{M})$ & \textbf{.440} & --- & .641 & .376 & --- \\
+SMD ($n{=}28$, Def.)               & KNN  & .150 & $(2,\text{M})$ & .104 & \textbf{.424} & .138 & .194 & .22 \\
+SMD ($n{=}28$, Best$^{\dagger}$)   & KNN  & .150 & $(5,\text{Q})$ & \textbf{.160} & .454 & .224 & .270 & --- \\
+UCR ($n{=}100$, Def.)              & GMM  & .138 & $(2,\text{M})$ & \textbf{.169} & \textbf{.288} & .143 & .429 & $1.8{\times}10^{-3}$ \\
 \bottomrule
 \end{tabular}
 \begin{flushleft}\scriptsize
@@ -582,7 +580,6 @@ Selected anchors: TELCO ECOD+HBOS; SMD $(2,\text{M})$ IF on $21/28$,
 PCA on $5$, COPOD on $2$; UCR $(2,\text{M})$ GMM $50/100$, PCA $18$,
 LOF $15$, HBOS/KNN/COPOD $5$ each, ECOD $2$.
 $^{\dagger}$~Ablation only.
-Recall trade-off described qualitatively in Sec.~\ref{sec:res-summary}.
 \end{flushleft}
 \end{table}
 

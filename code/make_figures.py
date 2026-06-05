@@ -155,8 +155,8 @@ def fig_jointpair_telco():
     # Joint-score top-3 (Mixed-strategy candidates by joint score Eq. 2)
     top_joint = k2.sort_values("q_times_div", ascending=False).head(3)
 
-    fig = plt.figure(figsize=(3.4, 2.5))
-    ax = fig.add_axes([0.18, 0.32, 0.78, 0.58])
+    fig = plt.figure(figsize=(3.4, 2.8))
+    ax = fig.add_axes([0.18, 0.42, 0.78, 0.50])
     ax.scatter(k2["q_times_div"], k2["F1"], s=30, alpha=0.7,
                color=COL["neutral"], edgecolor="0.25", linewidth=0.4, zorder=2)
     # Highlight top-3 joint-score candidates (smaller markers, neutral)
@@ -189,7 +189,8 @@ def fig_jointpair_telco():
                markersize=11, label=f"joint-score max = oracle: {oracle['set']}"),
     ]
     fig.legend(handles=handles, loc="lower center", ncol=1,
-               bbox_to_anchor=(0.55, 0.00), frameon=False, handletextpad=0.5)
+               bbox_to_anchor=(0.55, -0.02), frameon=False,
+               handletextpad=0.5, fontsize=7.5)
     plt.savefig(os.path.join(OUT, "fig_jointpair_telco.pdf"))
     plt.savefig(os.path.join(OUT, "fig_jointpair_telco.png"), dpi=220)
     plt.close()
