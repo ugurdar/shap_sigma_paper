@@ -531,13 +531,12 @@ $\to$ pipeline jump is $+0.037\,F_1$ with $+12.6$ pts of precision.
 filter on vs.\ off. Same-anchor paired Wilcoxon (two-sided);
 $r$ is rank-biserial.}
 \label{tab:sigma-ablation}
-\small
-\setlength{\tabcolsep}{6pt}
-\renewcommand{\arraystretch}{1.15}
+\scriptsize
+\setlength{\tabcolsep}{5pt}
+\renewcommand{\arraystretch}{1.05}
 \begin{tabular}{lccccc}
 \toprule
-& & anchor & + $\sigma$ & & \\
-Dataset & $n$ & $F_1$ & $F_1$ & $p$ & $r$ \\
+Dataset & $n$ & anchor $F_1$ & +$\sigma$ $F_1$ & $p$ & $r$ \\
 \midrule
 TELCO  & 1   & 0.401 & \textbf{0.440} & ---       & --- \\
 SMD    & 28  & 0.080 & \textbf{0.104} & $0.028$   & $+1.00$ \\
@@ -555,31 +554,37 @@ quality.
 
 \begin{table}[t]
 \centering
-\caption{SHAP-$\sigma$ vs.\ uniformly-best singleton (per-series
-best fusion variant; anchor+$\sigma$ dominates). \emph{Def.}: fixed
+\caption{SHAP-$\sigma$ vs.\ uniformly-best singleton. For each dataset
+the singleton row reports the detector with highest mean $F_1$ across
+series; SHAP-$\sigma$ rows use the canonical per-series anchor+$\sigma$
+output ($79\%$ of SMD, $74\%$ of UCR). \emph{Def.}: fixed
 $(K_R{=}2,\mathcal{S}{=}\text{Mixed})$ from Algorithm~1.
-\emph{Best$^{\dagger}$}: post-hoc best, ablation only. Paired
-Wilcoxon two-sided.}
+\emph{Best$^{\dagger}$}: post-hoc per-dataset best ($(K_R,\mathcal{S})$
+chosen by mean $F_1$); ablation only. $p$: two-sided paired Wilcoxon
+against the singleton above. Bold marks per-block best.}
 \label{tab:summary}
 \scriptsize
-\setlength{\tabcolsep}{2pt}
-\begin{tabular}{lcccccccc}
+\setlength{\tabcolsep}{2.5pt}
+\renewcommand{\arraystretch}{1.0}
+\begin{tabular}{llccccc}
 \toprule
-& \multicolumn{2}{c}{Singleton} & \multicolumn{5}{c}{SHAP-$\sigma$} & \\
-\cmidrule(lr){2-3}\cmidrule(lr){4-8}
-Dataset (cfg) & det. & $F_1$ & $(K_R,\mathcal{S})$ & $F_1$ & PA-$F_1$ & P & R & $p$ \\
+Dataset & Method & $F_1$ & P & R & PA-$F_1$ & $p$ \\
 \midrule
-TELCO (Def.)                       & ECOD & .401 & $(2,\text{M})$ & \textbf{.440} & --- & .641 & .376 & --- \\
-SMD ($n{=}28$, Def.)               & KNN  & .150 & $(2,\text{M})$ & .104 & \textbf{.424} & .138 & .194 & .22 \\
-SMD ($n{=}28$, Best$^{\dagger}$)   & KNN  & .150 & $(5,\text{Q})$ & \textbf{.160} & .454 & .224 & .270 & --- \\
-UCR ($n{=}100$, Def.)              & GMM  & .138 & $(2,\text{M})$ & \textbf{.169} & \textbf{.288} & .143 & .429 & $1.8{\times}10^{-3}$ \\
+TELCO & singleton ECOD                  & .401          & .488          & \textbf{.396} & --- & --- \\
+TELCO & SHAP-$\sigma$ (2,M)             & \textbf{.440} & \textbf{.641} & .376          & --- & --- \\
+\addlinespace[1pt]
+SMD ($n{=}28$) & singleton KNN          & \textbf{.150} & .175          & \textbf{.365} & .354          & --- \\
+SMD ($n{=}28$) & SHAP-$\sigma$ (2,M)    & .104          & .138          & .194          & \textbf{.424} & .22 \\
+SMD ($n{=}28$) & SHAP-$\sigma$ (5,Q)$^{\dagger}$ & \textbf{.160} & \textbf{.224} & .270 & .454 & --- \\
+\addlinespace[1pt]
+UCR ($n{=}100$) & singleton GMM         & .138          & .113          & .400          & .256          & --- \\
+UCR ($n{=}100$) & SHAP-$\sigma$ (2,M)   & \textbf{.169} & \textbf{.143} & \textbf{.429} & \textbf{.288} & $1.8{\times}10^{-3}$ \\
 \bottomrule
 \end{tabular}
 \begin{flushleft}\scriptsize
 Selected anchors: TELCO ECOD+HBOS; SMD $(2,\text{M})$ IF on $21/28$,
-PCA on $5$, COPOD on $2$; UCR $(2,\text{M})$ GMM $50/100$, PCA $18$,
-LOF $15$, HBOS/KNN/COPOD $5$ each, ECOD $2$.
-$^{\dagger}$~Ablation only.
+PCA $5$, COPOD $2$; UCR $(2,\text{M})$ GMM $50/100$, PCA $18$, LOF $15$,
+HBOS/KNN/COPOD $5$ each, ECOD $2$. $^{\dagger}$~Ablation only.
 \end{flushleft}
 \end{table}
 
