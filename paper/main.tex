@@ -477,13 +477,11 @@ Pipeline output reaches per-KPI macro $F_1{=}0.440$, clearly
 exceeding the strongest singleton ECOD ($0.401$).
 
 \paragraph{Deep baselines on TELCO.}
-On the $25{,}143$-timestamp truncated window adopted
-by~\cite{Malacarne2026}, DC-VAE attains per-KPI macro $F_1{=}0.134$
-and C-MTAD-GAT $F_1{=}0.160$ (their Table~2); on the \emph{same}
-window SHAP-$\sigma$ reaches $F_1{=}0.446$, a $3.3$-$2.8\times$
-margin. On the full $26{,}496$-timestamp window the released DC-VAE
-predictions reach $F_1{=}0.102$ versus SHAP-$\sigma$'s
-$F_1{=}0.440$. The margin is substantial under either window.
+On the same $25{,}143$-timestamp evaluation window
+of~\cite{Malacarne2026}, DC-VAE~\cite{gonzalez2023one} attains
+per-KPI macro $F_1{=}0.134$ and C-MTAD-GAT~\cite{Malacarne2026}
+$F_1{=}0.160$; SHAP-$\sigma$ reaches $F_1{=}0.446$, a $3.3$--$2.8\times$
+margin over the two deep baselines.
 
 \begin{figure}[t]
 \centering
@@ -614,10 +612,10 @@ and a per-feature $\sigma$ gate that filters anchor flags by the
 cross-detector spread of TreeSHAP attributions. Under the fixed label-free default
 $(K_R{=}2,\mathcal{S}{=}\text{Mixed})$, the pipeline identifies the
 empirical oracle pair on TELCO label-free and reaches per-KPI macro
-$F_1{=}0.440$ on the full window and $F_1{=}0.446$ on the truncated
-window of~\cite{Malacarne2026}, exceeding the released deep baselines
-DC-VAE and C-MTAD-GAT~\cite{Malacarne2026,gonzalez2023one}
-by $2.8$-$3.3\times$.
+$F_1{=}0.440$, with a $2.8$--$3.3\times$ margin over the released
+DC-VAE and C-MTAD-GAT
+baselines~\cite{Malacarne2026,gonzalez2023one}
+on their evaluation window.
 An isolated $\sigma$-filter ablation (same anchor on each series,
 filter on vs.\ off) shows the filter contributes a statistically
 significant gain on every multi-series benchmark
