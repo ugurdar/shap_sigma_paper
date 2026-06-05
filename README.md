@@ -1,6 +1,6 @@
 # SHAP-σ: A Label-Free Rashomon Pipeline for Multivariate Time-Series Anomaly Detection
 
-Reference implementation and IEEE conference paper.
+Reference implementation of the conference paper.
 
 ## Repository layout
 
