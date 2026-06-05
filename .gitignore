@@ -5,8 +5,12 @@ __pycache__/
 .venv/
 venv/
 
-# Data (large; provide externally)
+# Data (large; provide externally) — also catches the local symlink
+data
 data/
+
+# Local logs
+logs/
 
 # LaTeX build artefacts
 paper/*.aux

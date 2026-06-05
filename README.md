@@ -82,8 +82,20 @@ anchor+σ as the headline.
 | Default config | `(K_R = 2, S = Mixed)` |
 | Anchor flag | κ-sigma with κ = 3 |
 | σ-filter quantile | q = 0.75 |
-| SHAP surrogate | LightGBM, 200 trees, depth 6, lr 0.05 |
+| SHAP surrogate | LightGBM, 500 trees, depth 6, lr 0.05, num_leaves 31, subsample 0.8, colsample_bytree 0.8 |
 | MV-proxy surrogate | LightGBM, 80 trees, depth 4, lr 0.1 |
+| RNG seed | `SEED = 42` (numpy, random, hash seed, IForest/PCA/GMM `random_state`, LightGBM `random_state`) |
+
+## Reproducibility
+
+Every randomness source in the pipeline (subspace sampling for the
+MV proxy, IForest/GMM/PCA initial states, LightGBM tree bootstrap,
+LightGBM column subsampling, `np.random`, `random`, and the Python
+hash seed) is fixed to `SEED = 42`. The remaining detectors
+(ECOD, COPOD, HBOS, KNN, LOF) are deterministic functions of their
+input matrix. Two clean runs of `python code/shap_sigma_pipeline.py`
+on the same data produce byte-identical
+`results/standard_ksweep_all_datasets.csv`.
 
 ## Datasets
 

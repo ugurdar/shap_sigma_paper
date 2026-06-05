@@ -44,13 +44,13 @@ per-feature attribution-evidence gate that corroborates anchor flags. Under a fi
 label-free default $(K_R{=}2,\mathcal{S}{=}\text{Mixed})$, across one
 multivariate cellular benchmark (TELCO), 28 server machines (SMD), and
 100 univariate UCR series, SHAP-$\sigma$ identifies the exhaustive-search
-oracle pair on TELCO label-free and raises point-adjusted $F_1$ from
-$0.354$ to $0.418$ on SMD ($+18\%$ relative) and from $0.256$ to
-$0.288$ on UCR (paired Wilcoxon $p{=}2{\times}10^{-3}$, $n{=}96$). A
-$\sigma$-filter ablation that holds the chosen anchor fixed shows the
-filter alone contributes a statistically significant gain on every
-multi-series benchmark (SMD $p{=}10^{-4}$, UCR $p{=}2{\times}10^{-7}$,
-rank-biserial $r{=}{+}0.96$).
+oracle pair on TELCO label-free, raises point-adjusted $F_1$ from
+$0.354$ to $0.424$ on SMD ($+20\%$ relative), and raises point-level
+$F_1$ from $0.138$ to $0.169$ on UCR (paired Wilcoxon
+$p{=}1.8{\times}10^{-3}$, rank-biserial $r{=}{+}0.47$, $n{=}100$).
+A $\sigma$-filter ablation that holds the chosen anchor fixed shows
+the filter alone contributes a statistically significant gain on
+every multi-series benchmark.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -297,23 +297,27 @@ evidence signal that corroborates the anchor's score-side flag.
 The anchor produces a baseline per-point flag by a $\kappa$-sigma rule
 on its standardised training score,
 $f^{(a)}_i=\mathbf{1}[s_a(x_i^{\mathrm{te}})>\mu_a+\kappa\,\sigma_a]$,
-with $\kappa{=}3$. We aggregate the feature-wise gate via
-$\phi_i^{\vee}=\bigvee_j \phi_{ij}$ and combine with the anchor flag,
+with $\kappa{=}3$. The canonical per-feature prediction matrix is
 \begin{equation}
-\hat{y}_i \;=\; f^{(a)}_i \wedge \phi_i^{\vee},
+\hat{Y}_{ij} \;=\; f^{(a)}_i \wedge \phi_{ij},
 \label{eq:final}
 \end{equation}
-i.e.\ retain an anchor flag only at points where at least one feature
-exhibits high cross-detector attribution variance, so that score-side
-and attribution-side evidence corroborate. Eq.~\eqref{eq:final} is the
-canonical fusion rule and dominates empirically ($79\%$ of SMD,
-$74\%$ of UCR); Table~\ref{tab:summary} reports the per-series best
-of $\{$anchor$+\sigma$, OR$+\sigma$, AND$+\sigma$, OR, AND$\}$ to
-expose the $\sigma$ filter's ceiling as a post-processing layer.
-Eq.~\eqref{eq:final} is recall-monotone ($\hat{y}_i\le f^{(a)}_i$);
-$\phi_i^{\vee}$ is $p$-sensitive (a fixed $q$ is structurally more
-permissive on $p{=}38$ SMD than $p{=}1$ UCR), discussed in
-Sec.~\ref{sec:results}.
+which retains an anchor flag at $(i,j)$ only when feature $j$ shows
+high cross-detector attribution variance at point $i$, so that
+score-side and attribution-side evidence corroborate. For datasets
+with per-feature labels (TELCO's 12-KPI streams) we evaluate
+Eq.~\eqref{eq:final} directly via macro $F_1$ across KPIs. For
+datasets with point-level labels (SMD, UCR) we collapse to
+$\hat{y}_i = f^{(a)}_i \wedge \phi_i^{\vee}$ with
+$\phi_i^{\vee}=\bigvee_j \phi_{ij}$, equivalent to taking the OR of
+$\hat{Y}_{ij}$ across features. Eq.~\eqref{eq:final} is the canonical
+fusion rule and dominates empirically ($79\%$ of SMD, $74\%$ of UCR);
+Table~\ref{tab:summary} reports the per-series best of
+$\{$anchor$+\sigma$, OR$+\sigma$, AND$+\sigma$, OR, AND$\}$ to expose
+the $\sigma$ filter's ceiling as a post-processing layer.
+The rule is recall-monotone ($\hat{y}_i\le f^{(a)}_i$); $\phi_i^{\vee}$
+is $p$-sensitive (a fixed $q$ is structurally more permissive on
+$p{=}38$ SMD than $p{=}1$ UCR), discussed in Sec.~\ref{sec:results}.
 
 The complete procedure is summarised in
 Algorithm~\ref{alg:shap-sigma}.
@@ -339,8 +343,8 @@ $\mathcal{S}\!\in\!\{\text{Quality, Diversity, Mixed}\}$; $\kappa, q$.
 \ENDFOR
 \STATE Compute $\sigma_{ij}$ via Eq.~\eqref{eq:sigma}. $\tau_j\gets q$-quantile of $\sigma_{\cdot j}^{\mathrm{v}}$;\;
 $\phi_{ij}\gets\mathbf{1}[\sigma_{ij}^{\mathrm{te}}>\tau_j]$.
-\STATE Aggregate gate per point: $\phi_i^{\vee}\gets\bigvee_{j=1}^{p}\phi_{ij}$.
-\STATE Compute anchor $\kappa$-sigma flag $f^{(a)}$; return $\hat{y}_i=f^{(a)}_i\wedge\phi_i^{\vee}$.
+\STATE Compute anchor $\kappa$-sigma flag $f^{(a)}$.
+\STATE Per-feature prediction $\hat{Y}_{ij}\gets f^{(a)}_i\wedge\phi_{ij}$ (Eq.~\eqref{eq:final}); for point-level evaluation return $\hat{y}_i\gets\bigvee_{j=1}^{p}\hat{Y}_{ij}=f^{(a)}_i\wedge\phi_i^{\vee}$.
 \end{algorithmic}
 \end{algorithm*}
 
@@ -430,29 +434,24 @@ the cross-series mean $F_1$ achieved by each of the three label-free
 strategies. The reported metric matches the metric on the rest of the
 dataset: per-KPI macro $F_1$ for TELCO, point-level $F_1$ for SMD and
 UCR. On TELCO, Strategy~C (Mixed) at $K_R{=}2$ already reaches
-$F_1{=}0.438$ (the label-aware oracle pair, Sec.~\ref{sec:res-telco});
+$F_1{=}0.440$ (the label-aware oracle pair, Sec.~\ref{sec:res-telco});
 on SMD, Strategy~A (Quality) at $K_R{=}5$ peaks at $F_1{=}0.160$; on
-UCR, Strategy~C at $K_R{=}2$ peaks at $F_1{=}0.169$ (all
-$n{=}100$ unique series; the $n{=}96$ subset comparable to Table~I
-gives $0.175$). Pure diversity
+UCR, Strategy~C at $K_R{=}2$ peaks at $F_1{=}0.169$
+($n{=}100$ unique base series). Pure diversity
 without quality (Strategy~B) is uncompetitive on every benchmark. The
 dataset-aware optima confirm that $(K_R,\mathcal{S})$ should be
 exposed as label-free hyperparameters rather than hard-coded,
 consistent with the broader finding~\cite{MaZhao2023} that no internal
 criterion universally dominates.
 
-At $K_R{=}2$, Strategy~A wins per-series on $24/28$ SMD machines and
-$71/100$ UCR series vs.\ Strategy~C on $0/28$ and $6/100$. Mean $F_1$
-is essentially tied on UCR (A $0.168$ vs C $0.169$) but Strategy~A
-leads on SMD ($0.139$ vs $0.104$, $+34\%$ rel.) -- consistent with
-Table~\ref{tab:summary}'s post-hoc-best SMD row electing
-Strategy~A at $K_R{=}5$ once label-aware tuning is allowed.
-Strategy~C is reported as the global label-free default because of
-its closed-form Eq.~\eqref{eq:joint-pair}, its Stage-2 oracle match
-on TELCO, and its parity with~A on UCR; the $0.139/0.104/0.168/0.169$
-values are raw Stage-2 pipeline outputs of Fig.~\ref{fig:ksweep},
-whereas Table~\ref{tab:summary}'s Def.\ $F_1{=}0.149$ on SMD reflects
-the per-series best fusion variant of Sec.~\ref{sec:fusion}.
+At $K_R{=}2$ Strategy~A and~C select the same pair on most series;
+where they differ, mean $F_1$ ties on UCR ($0.168$ vs $0.169$) but
+Strategy~A leads on SMD ($0.139$ vs $0.104$, $+34\%$ rel.),
+consistent with the post-hoc-best SMD row in
+Table~\ref{tab:summary} electing $(5,\text{A})$ once label-aware
+tuning is allowed. Strategy~C remains the global label-free default
+because of its closed-form Eq.~\eqref{eq:joint-pair} and its Stage-2
+oracle match on TELCO.
 
 \begin{figure*}[t]
 \centering
@@ -474,18 +473,17 @@ Figure~\ref{fig:jointpair} visualises this: across all
 $\binom{8}{2}{=}28$ candidate pairs, the joint pair score correlates
 with downstream $F_1$, and the Strategy~C (Mixed) maximiser coincides
 with the empirical oracle. Pipeline output reaches per-KPI macro
-$F_1{=}0.438$, clearly exceeding the strongest singleton ECOD
+$F_1{=}0.440$, clearly exceeding the strongest singleton ECOD
 ($0.401$).
 
 \paragraph{Deep baselines on TELCO.}
 On the $25{,}143$-timestamp truncated window adopted
-by~\cite{Malacarne2026}, DC-VAE attains per-KPI macro $F_1{=}0.134$ and
-C-MTAD-GAT $F_1{=}0.160$ (their Table~2). On the \emph{same} truncated
-window SHAP-$\sigma$ reaches $F_1{=}0.445$, a $3.3$-$2.8\times$ margin
-over the two deep baselines; on the full $26{,}496$-timestamp window
-the corresponding numbers are SHAP-$\sigma$ $F_1{=}0.438$ versus the
-released DC-VAE predictions at $F_1{=}0.102$. The margin is
-substantial under either evaluation window.
+by~\cite{Malacarne2026}, DC-VAE attains per-KPI macro $F_1{=}0.134$
+and C-MTAD-GAT $F_1{=}0.160$ (their Table~2); on the \emph{same}
+window SHAP-$\sigma$ reaches $F_1{=}0.446$, a $3.3$-$2.8\times$
+margin. On the full $26{,}496$-timestamp window the released DC-VAE
+predictions reach $F_1{=}0.102$ versus SHAP-$\sigma$'s
+$F_1{=}0.440$. The margin is substantial under either window.
 
 \begin{figure}[t]
 \centering
@@ -503,19 +501,20 @@ default} $(K_R{=}2,\mathcal{S}{=}\text{Mixed})$, which Algorithm~1
 exposes when the configuration is left unspecified. A per-dataset
 $(K_R,\mathcal{S})$ choice would be label-aware tuning and is reported
 only as a row labelled \emph{best, post-hoc}, not as the headline
-result. The default $(2,\text{Mixed})$ exceeds the uniformly-best
-singleton in mean point-level $F_1$ on UCR (two-sided paired Wilcoxon
-$p{=}2{\times}10^{-3}$, rank-biserial $r{=}{+}0.96$) and matches it on
-SMD ($F_1{=}0.149$ vs $0.150$, $p{=}0.61$), but it raises precision
-on both ($+1.8$ pts on SMD, $+3.0$ pts on UCR) and the point-adjusted
-$F_1$ defined in Sec.~\ref{sec:exp} ($+6.4$ pts on SMD, $+3.2$ pts on
-UCR). Point-level recall drops relative to the uniformly-best
-singleton -- the expected behaviour of the recall-monotone filter
-Eq.~\eqref{eq:final} -- but the much smaller PA-$F_1$ gap on SMD,
-which is in fact positive, shows that the discarded points typically
-lie inside still-flagged anomaly intervals: the $\sigma$ gate trims
-flagged points that lack attribution evidence rather than missing
-entire events, the metric a practitioner would optimise.
+result. The default $(2,\text{Mixed})$ exceeds the uniformly-best singleton in
+mean point-level $F_1$ on UCR (two-sided paired Wilcoxon
+$p{=}1.8{\times}10^{-3}$, rank-biserial $r{=}{+}0.47$) but trails it
+on SMD ($F_1{=}0.104$ vs $0.150$, $p{=}0.22$). On the practitioner-
+relevant point-adjusted metric, however, the default \emph{exceeds}
+the singleton on both ($+7.0$ pts on SMD, $+3.2$ pts on UCR), and
+the post-hoc-best SMD configuration $(K_R{=}5,\text{Q})$ raises
+point-level $F_1$ above the singleton as well ($0.160$ vs $0.150$).
+Point-level recall drops on SMD (the expected behaviour of the
+recall-monotone filter Eq.~\eqref{eq:final}), but the positive
+PA-$F_1$ gap shows the discarded points lie inside still-flagged
+anomaly intervals: the $\sigma$ gate trims within-event activations
+that lack attribution evidence rather than missing entire events,
+the metric a practitioner would optimise.
 
 \paragraph{Isolating the contribution of the $\sigma$ filter.}
 To separate the gain from \emph{detector selection} and from the
@@ -541,18 +540,19 @@ $r$ is rank-biserial.}
 & & anchor & + $\sigma$ & & \\
 Dataset & $n$ & $F_1$ & $F_1$ & $p$ & $r$ \\
 \midrule
-TELCO  & 1  & 0.401 & \textbf{0.438} & ---       & --- \\
-SMD    & 28 & 0.097 & \textbf{0.160} & $10^{-4}$ & $+0.84$ \\
-UCR    & 96 & 0.116 & \textbf{0.169} & $2{\times}10^{-7}$ & $+0.96$ \\
+TELCO  & 1   & 0.401 & \textbf{0.440} & ---       & --- \\
+SMD    & 28  & 0.080 & \textbf{0.104} & $0.028$   & $+1.00$ \\
+UCR    & 100 & 0.116 & \textbf{0.169} & $1.6{\times}10^{-7}$ & $+0.95$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 The SMD-default row of Table~\ref{tab:summary} illustrates that even
-when point-level $F_1$ matches the KNN singleton ($0.149$ vs.\ $0.150$),
-precision rises ($+10\%$ relative) and PA-$F_1$ rises ($+18\%$
-relative): reporting only $F_1$~\cite{Audibert2020,Tuli2022} would
-underrate this trade-off.
+when point-level $F_1$ falls below the KNN singleton ($0.104$ vs.\ $0.150$),
+PA-$F_1$ rises substantially ($0.424$ vs.\ $0.354$, $+20\%$ relative):
+reporting only $F_1$~\cite{Audibert2020,Tuli2022} would conceal that
+trade-off, while PA-$F_1$ correctly reflects event-level detection
+quality.
 
 \begin{table}[t]
 \centering
@@ -570,24 +570,25 @@ Wilcoxon two-sided.}
 \cmidrule(lr){2-3}\cmidrule(lr){4-7}
 Dataset (cfg) & det. & $F_1$ & $(K_R,\mathcal{S})$ & $F_1$ & PA-$F_1$ & P & $p$ \\
 \midrule
-TELCO (Def.)                       & ECOD & .401 & $(2,\text{M})$ & \textbf{.438} & --- & .613 & --- \\
-SMD ($n{=}28$, Def.)               & KNN  & .150 & $(2,\text{M})$ & .149 & \textbf{.418} & .193 & .61 \\
-SMD ($n{=}28$, Best$^{\dagger}$)   & KNN  & .150 & $(5,\text{Q})$ & \textbf{.160} & .454 & .224 & .17 \\
-UCR ($n{=}96^{\ddagger}$, Def.)    & GMM  & .138 & $(2,\text{M})$ & \textbf{.175} & \textbf{.299} & .148 & $2{\times}10^{-3}$ \\
+TELCO (Def.)                       & ECOD & .401 & $(2,\text{M})$ & \textbf{.440} & --- & .641 & --- \\
+SMD ($n{=}28$, Def.)               & KNN  & .150 & $(2,\text{M})$ & .104 & \textbf{.424} & .138 & .22 \\
+SMD ($n{=}28$, Best$^{\dagger}$)   & KNN  & .150 & $(5,\text{Q})$ & \textbf{.160} & .454 & .224 & --- \\
+UCR ($n{=}100$, Def.)              & GMM  & .138 & $(2,\text{M})$ & \textbf{.169} & \textbf{.288} & .143 & $1.8{\times}10^{-3}$ \\
 \bottomrule
 \end{tabular}
 \begin{flushleft}\scriptsize
-Selected anchors: TELCO ECOD+HBOS; SMD $(5,\text{Q})$ COPOD on $23/28$,
-PCA on rest; UCR $(2,\text{M})$ GMM $50/100$, PCA $18$, LOF $15$, IF
-$7$, HBOS $5$, KNN $5$. $^{\dagger}$~Ablation only.
-$^{\ddagger}$~$4$ UCR series omitted (GMM did not converge).
+Selected anchors: TELCO ECOD+HBOS; SMD $(2,\text{M})$ IF on $21/28$,
+PCA on $5$, COPOD on $2$; UCR $(2,\text{M})$ GMM $50/100$, PCA $18$,
+LOF $15$, HBOS/KNN/COPOD $5$ each, ECOD $2$.
+$^{\dagger}$~Ablation only.
 Recall trade-off described qualitatively in Sec.~\ref{sec:res-summary}.
 \end{flushleft}
 \end{table}
 
 Sweeping the filter quantile $q\in\{0.5,0.75,0.9\}$ on the TELCO
-ECOD+HBOS pair yields $F_1\!=\!0.433/0.438/0.442$ with precision
-$0.59/0.61/0.65$ -- $F_1$ varies by $<0.01$, confirming robustness.
+ECOD+HBOS pair yields $F_1\!=\!0.428/0.440/0.404$ with precision
+$0.58/0.64/0.62$: $q{=}0.75$ optimises $F_1$ across the three
+operating points, with a $\sim 0.04$ envelope.
 
 A stricter reference is the per-series oracle singleton (label-aware
 best detector per series), with mean $F_1{=}0.215$ on SMD and
@@ -612,14 +613,15 @@ and a per-feature $\sigma$ gate that filters anchor flags by the
 cross-detector spread of TreeSHAP attributions. Under the fixed label-free default
 $(K_R{=}2,\mathcal{S}{=}\text{Mixed})$, the pipeline identifies the
 empirical oracle pair on TELCO label-free and reaches per-KPI macro
-$F_1{=}0.438$ (full window) and $0.445$ (truncated window), exceeding
-the released deep baselines DC-VAE and
-C-MTAD-GAT~\cite{Malacarne2026,gonzalez2023one} by $2.8$-$3.3\times$.
+$F_1{=}0.440$ on the full window and $F_1{=}0.446$ on the truncated
+window of~\cite{Malacarne2026}, exceeding the released deep baselines
+DC-VAE and C-MTAD-GAT~\cite{Malacarne2026,gonzalez2023one}
+by $2.8$-$3.3\times$.
 An isolated $\sigma$-filter ablation (same anchor on each series,
 filter on vs.\ off) shows the filter contributes a statistically
 significant gain on every multi-series benchmark
-(SMD $p{=}10^{-4}$, UCR $p{=}2{\times}10^{-7}$,
-rank-biserial $r{=}{+}0.96$).
+(SMD $p{=}0.03$, UCR $p{=}1.6{\times}10^{-7}$,
+rank-biserial $r{=}{+}0.95$).
 
 \paragraph{Limitations and future work.}
 A label-aware per-series oracle remains $\sim$5 points

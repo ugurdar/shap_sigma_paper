@@ -7,7 +7,7 @@ macro F1 (TELCO).
 
 Output: results/singletons_cross_dataset.csv
 """
-import os, glob, re, time
+import os, glob, re, time, random
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
@@ -24,6 +24,11 @@ from pyod.models.iforest import IForest
 
 import warnings
 warnings.filterwarnings("ignore")
+
+SEED = 42
+random.seed(SEED)
+np.random.seed(SEED)
+os.environ["PYTHONHASHSEED"] = str(SEED)
 
 DETS    = ["IF", "LOF", "ECOD", "COPOD", "KNN", "PCA", "GMM", "HBOS"]
 K_SIGMA = 3.0
@@ -47,13 +52,13 @@ def sanitize(s):
 
 def make_detectors():
     return {
-        "IF":    IForest(n_estimators=100, random_state=42),
+        "IF":    IForest(n_estimators=100, random_state=SEED),
         "LOF":   LOF(n_neighbors=20, novelty=True),
         "ECOD":  ECOD(),
         "COPOD": COPOD(),
         "KNN":   KNN(n_neighbors=10),
-        "PCA":   PCA(),
-        "GMM":   GMM(n_components=2, random_state=42),
+        "PCA":   PCA(random_state=SEED),
+        "GMM":   GMM(n_components=2, random_state=SEED),
         "HBOS":  HBOS(),
     }
 

@@ -32,7 +32,7 @@ Output:
 Tested on Python 3.11, pyod 2.0, lightgbm 4.5, shap 0.46.
 """
 
-import os, time, glob, re
+import os, time, glob, re, random
 from itertools import combinations
 
 import numpy as np
@@ -56,6 +56,14 @@ from pyod.models.iforest import IForest
 import warnings
 warnings.filterwarnings("ignore")
 
+# Global determinism: fix every RNG we touch. Anything not seeded here
+# is either deterministic given inputs (ECOD, COPOD, HBOS, KNN, LOF, PCA)
+# or seeded explicitly at construction time (IForest, GMM, LightGBM).
+SEED = 42
+random.seed(SEED)
+np.random.seed(SEED)
+os.environ["PYTHONHASHSEED"] = str(SEED)
+
 # ============== STANDARD PARAMETERS (identical across datasets) ==============
 
 DETS          = ["IF", "LOF", "ECOD", "COPOD", "KNN", "PCA", "GMM", "HBOS"]
@@ -66,7 +74,7 @@ Q_FILT        = 0.75     # sigma-filter quantile
 W             = 100      # UCR sliding window
 MV_N_SUBSPACE = 3        # Mass-Volume proxy: subspaces
 MV_N_UNIF     = 2000     # Mass-Volume proxy: uniform samples per subspace
-LGB_TREES_SURR = 200     # SHAP surrogate trees
+LGB_TREES_SURR = 500     # SHAP surrogate trees (matches headline TELCO config)
 LGB_TREES_MV   = 80      # MV-proxy surrogate trees
 
 ROOT     = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -91,15 +99,17 @@ def sanitize(s):
 
 
 def make_detectors():
-    """8 PyOD detectors with default hyperparameters."""
+    """8 PyOD detectors with default hyperparameters and explicit random_state
+    on every detector that exposes one. Detectors not listed below are
+    deterministic functions of the input matrix (ECOD, COPOD, HBOS, KNN, LOF)."""
     return {
-        "IF":    IForest(n_estimators=100, random_state=42),
+        "IF":    IForest(n_estimators=100, random_state=SEED),
         "LOF":   LOF(n_neighbors=20, novelty=True),
         "ECOD":  ECOD(),
         "COPOD": COPOD(),
         "KNN":   KNN(n_neighbors=10),
-        "PCA":   PCA(),
-        "GMM":   GMM(n_components=2, random_state=42),
+        "PCA":   PCA(random_state=SEED),
+        "GMM":   GMM(n_components=2, random_state=SEED),
         "HBOS":  HBOS(),
     }
 
@@ -130,7 +140,7 @@ def pa_f1_score(y_true, y_pred):
 
 # ============== Stage 1: Label-free MV-proxy quality (Eq. 1) ==============
 
-def mv_proxy_quality(s_train_dict, X_train, seed=42):
+def mv_proxy_quality(s_train_dict, X_train, seed=SEED):
     """Surrogate-based Mass-Volume proxy quality A_d.
 
     For each detector d:
@@ -157,7 +167,7 @@ def mv_proxy_quality(s_train_dict, X_train, seed=42):
             try:
                 surr = lgb.LGBMRegressor(
                     n_estimators=LGB_TREES_MV, learning_rate=0.1, max_depth=4,
-                    random_state=42, verbose=-1, n_jobs=1,
+                    random_state=SEED, verbose=-1, n_jobs=1,
                 )
                 surr.fit(Xs, s_train_dict[d])
                 s_u = surr.predict(Xu)
@@ -268,7 +278,8 @@ def run_pipeline(members, q, X_tr, X_v, X_te, s_tr, s_v, s_te,
             s_d = sanitize(s_tr[d])
             surr = lgb.LGBMRegressor(
                 n_estimators=LGB_TREES_SURR, learning_rate=0.05, max_depth=6,
-                random_state=42, verbose=-1, n_jobs=1,
+                num_leaves=31, subsample=0.8, colsample_bytree=0.8,
+                random_state=SEED, verbose=-1, n_jobs=1,
             )
             surr.fit(X_tr, s_d)
             expl = shap.TreeExplainer(surr)
@@ -300,43 +311,46 @@ def run_pipeline(members, q, X_tr, X_v, X_te, s_tr, s_v, s_te,
         f_or = f_or | f_d
         f_and = f_and & f_d
 
-    # Five fusion variants (Eq. 4: anchor + sigma is canonical)
-    variants = {
-        "anchor+sigma": (f_a   * phi_or).astype(int),
-        "OR+sigma":     (f_or  * phi_or).astype(int),
-        "AND":          f_and.astype(int),
-        "OR":           f_or.astype(int),
-        "AND+sigma":    (f_and * phi_or).astype(int),
-    }
-
-    # Evaluate
     if per_kpi:
-        # broadcast row-flag to all p KPI streams, then per-KPI macro
+        # TELCO: per-KPI elementwise sigma filter. For each KPI j and point i,
+        # the per-KPI prediction is f_a[i] * phi[i,j] (Eq. 5 per-feature form).
+        # Macro F1 is averaged over the p label streams.
         K_KPI = y_test.shape[1]
-        def macro_f1(row_flag):
-            preds = np.repeat(row_flag[:, None], K_KPI, axis=1)
-            F = [f1_score(y_test[:, k], preds[:, k], zero_division=0) for k in range(K_KPI)]
-            return float(np.mean(F))
-        def macro_p(row_flag):
-            preds = np.repeat(row_flag[:, None], K_KPI, axis=1)
-            P = [precision_score(y_test[:, k], preds[:, k], zero_division=0) for k in range(K_KPI)]
-            return float(np.mean(P))
-        def macro_r(row_flag):
-            preds = np.repeat(row_flag[:, None], K_KPI, axis=1)
-            R = [recall_score(y_test[:, k], preds[:, k], zero_division=0) for k in range(K_KPI)]
-            return float(np.mean(R))
-        f1s = {n: macro_f1(p_) for n, p_ in variants.items()}
+        # 2D prediction matrices: (N_te, K_KPI)
+        f_a_b   = np.repeat(f_a[:, None],   K_KPI, axis=1)
+        f_or_b  = np.repeat(f_or[:, None],  K_KPI, axis=1)
+        f_and_b = np.repeat(f_and[:, None], K_KPI, axis=1)
+        variants = {
+            "anchor+sigma": (f_a_b   * phi).astype(int),
+            "OR+sigma":     (f_or_b  * phi).astype(int),
+            "AND":          f_and_b.astype(int),
+            "OR":           f_or_b.astype(int),
+            "AND+sigma":    (f_and_b * phi).astype(int),
+        }
+        def macro(pred, fn):
+            return float(np.mean([fn(y_test[:, k], pred[:, k], zero_division=0)
+                                   for k in range(K_KPI)]))
+        f1s = {n: macro(p_, f1_score) for n, p_ in variants.items()}
         best_var = max(f1s, key=f1s.get)
         best_pred = variants[best_var]
         return {
             "F1":    round(f1s[best_var], 4),
-            "P":     round(macro_p(best_pred), 4),
-            "R":     round(macro_r(best_pred), 4),
+            "P":     round(macro(best_pred, precision_score), 4),
+            "R":     round(macro(best_pred, recall_score), 4),
             "PA_F1": np.nan,
             "best_variant": best_var,
             "anchor": anchor,
         }, shap_cache
     else:
+        # SMD / UCR: point-level prediction with row-aggregate gate phi^v
+        # (Eq. 5: y_hat_i = f_a_i AND phi^v_i).
+        variants = {
+            "anchor+sigma": (f_a   * phi_or).astype(int),
+            "OR+sigma":     (f_or  * phi_or).astype(int),
+            "AND":          f_and.astype(int),
+            "OR":           f_or.astype(int),
+            "AND+sigma":    (f_and * phi_or).astype(int),
+        }
         f1s = {n: f1_score(y_test, p_, zero_division=0) for n, p_ in variants.items()}
         pas = {n: pa_f1_score(y_test, p_) for n, p_ in variants.items()}
         best_var = max(f1s, key=f1s.get)
