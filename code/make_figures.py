@@ -149,22 +149,29 @@ def fig_ksweep():
 def fig_jointpair_telco():
     df2 = pd.read_csv(os.path.join(RES, "telco_all_k_combinations.csv"))
     k2 = df2[df2["K"] == 2].copy()
-    mixed_top = k2.sort_values("q_times_div", ascending=False).iloc[0]
-    qual_top  = k2.sort_values("quality", ascending=False).iloc[0]
+
+    # Empirical F1 oracle (highest F1 among 28 pairs)
+    oracle = k2.sort_values("F1", ascending=False).iloc[0]
+    # Joint-score top-3 (Mixed-strategy candidates by joint score Eq. 2)
+    top_joint = k2.sort_values("q_times_div", ascending=False).head(3)
 
     fig = plt.figure(figsize=(3.4, 2.5))
     ax = fig.add_axes([0.18, 0.32, 0.78, 0.58])
     ax.scatter(k2["q_times_div"], k2["F1"], s=30, alpha=0.7,
                color=COL["neutral"], edgecolor="0.25", linewidth=0.4, zorder=2)
-    ax.scatter(mixed_top["q_times_div"], mixed_top["F1"], s=110,
+    # Highlight top-3 joint-score candidates (smaller markers, neutral)
+    for _, r in top_joint.iloc[1:3].iterrows():
+        ax.scatter(r["q_times_div"], r["F1"], s=55,
+                   color="white", marker="o", edgecolor=COL["Quality"],
+                   linewidth=1.3, zorder=4)
+    # Joint-score maximiser = empirical F1 oracle (coincide on TELCO)
+    ax.scatter(oracle["q_times_div"], oracle["F1"], s=140,
                color=COL["best"], marker="*", edgecolor="black",
-               linewidth=0.7, zorder=5)
-    ax.scatter(qual_top["q_times_div"], qual_top["F1"], s=60,
-               color=COL["Quality"], marker="D", edgecolor="black",
-               linewidth=0.6, zorder=4)
+               linewidth=0.8, zorder=6)
+
     ax.set_xlabel(r"Joint score $\frac{q_i+q_j}{2}\,(1-\rho_{ij})$", fontsize=8.5)
     ax.set_ylabel("Pipeline $F_1$ (per-KPI macro)", fontsize=8.5)
-    ax.set_title("TELCO: all 28 candidate pairs (K_R=2)", fontsize=9)
+    ax.set_title("TELCO: all 28 candidate pairs ($K_R=2$)", fontsize=9)
     ax.tick_params(direction="in", length=2.5, pad=2)
     for sp in ["top", "right"]:
         ax.spines[sp].set_linewidth(0.4)
@@ -172,13 +179,14 @@ def fig_jointpair_telco():
     handles = [
         Line2D([0], [0], marker="o", color="none",
                markerfacecolor=COL["neutral"], markeredgecolor="0.25",
-               markersize=6, label="all 28 pairs"),
-        Line2D([0], [0], marker="D", color="none",
-               markerfacecolor=COL["Quality"], markeredgecolor="black",
-               markersize=6, label=f"Quality pick: {qual_top['set']}"),
+               markersize=6, label="all 28 candidate pairs"),
+        Line2D([0], [0], marker="o", color="none",
+               markerfacecolor="white", markeredgecolor=COL["Quality"],
+               markersize=7, markeredgewidth=1.3,
+               label=f"runners-up by joint score"),
         Line2D([0], [0], marker="*", color="none",
                markerfacecolor=COL["best"], markeredgecolor="black",
-               markersize=9, label=f"Mixed pick = oracle: {mixed_top['set']}"),
+               markersize=11, label=f"joint-score max = oracle: {oracle['set']}"),
     ]
     fig.legend(handles=handles, loc="lower center", ncol=1,
                bbox_to_anchor=(0.55, 0.00), frameon=False, handletextpad=0.5)

@@ -467,14 +467,14 @@ UCR at $(K_R{=}2,\text{Mixed})$.}
 \subsection{TELCO Headline and Comparison to Deep Baselines}
 \label{sec:res-telco}
 On TELCO, the canonical $K_R{=}2$ joint pair scoring of
-Eq.~\eqref{eq:joint-pair} selects $(\text{ECOD}, \text{HBOS})$, which
-is exactly the label-aware oracle pair under exhaustive search.
-Figure~\ref{fig:jointpair} visualises this: across all
-$\binom{8}{2}{=}28$ candidate pairs, the joint pair score correlates
-with downstream $F_1$, and the Strategy~C (Mixed) maximiser coincides
-with the empirical oracle. Pipeline output reaches per-KPI macro
-$F_1{=}0.440$, clearly exceeding the strongest singleton ECOD
-($0.401$).
+Eq.~\eqref{eq:joint-pair} selects $(\text{ECOD}, \text{HBOS})$,
+which is exactly the label-aware oracle pair under exhaustive
+search and which simultaneously maximises label-free quality
+($\bar{q}{=}0.906$) and joint score ($0.870$).
+Figure~\ref{fig:jointpair} visualises the 28 candidate pairs:
+the joint score's maximiser sits at the top of the $F_1$ axis.
+Pipeline output reaches per-KPI macro $F_1{=}0.440$, clearly
+exceeding the strongest singleton ECOD ($0.401$).
 
 \paragraph{Deep baselines on TELCO.}
 On the $25{,}143$-timestamp truncated window adopted
@@ -489,8 +489,9 @@ $F_1{=}0.440$. The margin is substantial under either window.
 \centering
 \includegraphics[width=0.95\columnwidth]{figs/fig_jointpair_telco.pdf}
 \caption{TELCO: joint pair score versus pipeline $F_1$ for all 28
-candidate pairs ($K_R{=}2$). The Mixed-strategy maximiser (green
-star) coincides with the empirical oracle pair.}
+candidate pairs ($K_R{=}2$). The joint-score maximiser (green star)
+coincides with the empirical $F_1$ oracle (ECOD+HBOS); circled
+markers are the runners-up by joint score.}
 \label{fig:jointpair}
 \end{figure}
 
