@@ -554,30 +554,28 @@ quality.
 
 \begin{table}[t]
 \centering
-\caption{SHAP-$\sigma$ vs.\ uniformly-best singleton. For each dataset
-the singleton row reports the detector with highest mean $F_1$ across
-series; SHAP-$\sigma$ rows use the canonical per-series anchor+$\sigma$
-output ($79\%$ of SMD, $74\%$ of UCR). \emph{Def.}: fixed
-$(K_R{=}2,\mathcal{S}{=}\text{Mixed})$ from Algorithm~1.
-\emph{Best$^{\dagger}$}: post-hoc per-dataset best ($(K_R,\mathcal{S})$
-chosen by mean $F_1$); ablation only. $p$: two-sided paired Wilcoxon
-against the singleton above. Bold marks per-block best.}
+\caption{SHAP-$\sigma$ vs.\ uniformly-best singleton.
+$(2,\text{M})$: default $K_R{=}2$, Mixed. $(5,\text{Q})^{\dagger}$:
+post-hoc per-dataset best, ablation only. $p_{F_1}$: two-sided paired
+Wilcoxon on per-series $F_1$ vs.\ the dataset's singleton row
+(\emph{ref.}); \emph{n.t.}~= no test (TELCO $n{=}1$). Bold = per-dataset
+best in each metric.}
 \label{tab:summary}
 \scriptsize
 \setlength{\tabcolsep}{2.5pt}
 \renewcommand{\arraystretch}{1.0}
 \begin{tabular}{llccccc}
 \toprule
-Dataset & Method & $F_1$ & P & R & PA-$F_1$ & $p$ \\
+Dataset & Method & $F_1$ & P & R & PA-$F_1$ & $p_{F_1}$\,vs.\,sing. \\
 \midrule
-TELCO & singleton ECOD                  & .401          & .488          & \textbf{.396} & --- & --- \\
-TELCO & SHAP-$\sigma$ (2,M)             & \textbf{.440} & \textbf{.641} & .376          & --- & --- \\
+TELCO & singleton ECOD                  & .401          & .488          & \textbf{.396} & ---           & ref. \\
+TELCO & SHAP-$\sigma$ (2,M)             & \textbf{.440} & \textbf{.641} & .376          & ---           & n.t. \\
 \addlinespace[1pt]
-SMD ($n{=}28$) & singleton KNN          & \textbf{.150} & .175          & \textbf{.365} & .354          & --- \\
+SMD ($n{=}28$) & singleton KNN          & \textbf{.150} & .175          & \textbf{.365} & .354          & ref. \\
 SMD ($n{=}28$) & SHAP-$\sigma$ (2,M)    & .104          & .138          & .194          & \textbf{.424} & .22 \\
 SMD ($n{=}28$) & SHAP-$\sigma$ (5,Q)$^{\dagger}$ & \textbf{.160} & \textbf{.224} & .270 & .454 & .35 \\
 \addlinespace[1pt]
-UCR ($n{=}100$) & singleton GMM         & .138          & .113          & .400          & .256          & --- \\
+UCR ($n{=}100$) & singleton GMM         & .138          & .113          & .400          & .256          & ref. \\
 UCR ($n{=}100$) & SHAP-$\sigma$ (2,M)   & \textbf{.169} & \textbf{.143} & \textbf{.429} & \textbf{.288} & $1.8{\times}10^{-3}$ \\
 \bottomrule
 \end{tabular}
