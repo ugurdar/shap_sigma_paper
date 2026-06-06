@@ -122,19 +122,3 @@ pdflatex main.tex && pdflatex main.tex   # twice for references
 
 LaTeX requires `IEEEtran` plus `booktabs, balance, algorithm,
 algorithmic, multirow, array, xcolor`.
-
-## Citation
-
-```bibtex
-@inproceedings{Dar2026shapsigma,
-  author    = {},
-  title     = {{SHAP-$\sigma$: A Label-Free Rashomon Pipeline for Multivariate Time-Series Anomaly Detection}},
-  year      = {2026},
-}
-```
-
-## Funding
-
-This work has received funding from the European Union via the
-OC4-2025-TES-02 call issued and implemented by the ENFIELD project,
-under grant agreement No 101120657.
