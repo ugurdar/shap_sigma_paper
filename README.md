@@ -127,7 +127,7 @@ algorithmic, multirow, array, xcolor`.
 
 ```bibtex
 @inproceedings{Dar2026shapsigma,
-  author    = {Dar, Ugur and Malacarne, Sara and Cavus, Mustafa and Van den Abeele, Jeriek},
+  author    = {},
   title     = {{SHAP-$\sigma$: A Label-Free Rashomon Pipeline for Multivariate Time-Series Anomaly Detection}},
   year      = {2026},
 }
