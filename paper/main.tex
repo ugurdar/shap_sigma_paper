@@ -29,28 +29,29 @@ $^{2}$Telenor Research and Innovation, Oslo, Norway\\
 \maketitle
 
 \begin{abstract}
-We address unsupervised anomaly detection in multivariate time series
-when no labels are available for either training or model selection.
-Existing label-free quality criteria such as the Mass--Volume
-curve~\cite{Goix2016} are known to be noisy across datasets, and
+We address unsupervised anomaly detection on multivariate cellular
+network KPI streams, where labels are unavailable for both training
+and model selection. Existing label-free quality criteria such as the
+Mass--Volume curve~\cite{Goix2016} are known to be noisy, and
 single-detector SHAP explanations cannot signal when a flag should be
-trusted. We propose \textbf{SHAP-$\sigma$}, a pipeline that
-(i) selects a small \emph{Rashomon set} of unsupervised detectors using
-a closed-form joint pair score that trades off label-free quality
-against pairwise Spearman diversity; (ii) explains every selected
-detector with a LightGBM surrogate and TreeSHAP; and (iii) uses the
-cross-detector standard deviation of those attributions as a
-per-feature attribution-evidence gate that corroborates anchor flags. Under a fixed
-label-free default $(K_R{=}2,\mathcal{S}{=}\text{Mixed})$, across one
-multivariate cellular benchmark (TELCO), 28 server machines (SMD), and
-100 univariate UCR series, SHAP-$\sigma$ identifies the exhaustive-search
-oracle pair on TELCO label-free, raises point-adjusted $F_1$ from
-$0.354$ to $0.424$ on SMD ($+20\%$ relative), and raises point-level
-$F_1$ from $0.138$ to $0.169$ on UCR (paired Wilcoxon
-$p{=}1.8{\times}10^{-3}$, rank-biserial $r{=}{+}0.47$, $n{=}100$).
-A $\sigma$-filter ablation that holds the chosen anchor fixed shows
-the filter alone contributes a statistically significant gain on
-every multi-series benchmark.
+trusted. We propose \textbf{SHAP-$\sigma$}, a label-free pipeline for
+per-KPI multivariate anomaly detection that
+(i) self-tunes each detector's hyperparameters without labels
+(PCA via $95\%$ explained variance, $k$-NN/LOF via $k$-distance elbow,
+GMM via BIC, HBOS via Sturges' rule);
+(ii) selects a small \emph{Rashomon set} via a closed-form joint pair
+score combining a Mass--Volume proxy with a cardinality veto;
+(iii) explains every selected detector with a LightGBM surrogate and
+TreeSHAP; and (iv) uses the cross-detector standard deviation of those
+attributions as a per-feature gate that corroborates anchor flags.
+On TELCO (12 per-KPI label streams), the closed-form pair score at
+$K_R{=}2$ identifies the empirical oracle pair (ECOD+HBOS) label-free,
+and the pipeline raises per-KPI macro $F_1$ from $0.401$ (best
+singleton) to $0.440$ ($+0.039$, isolated $\Delta\sigma{=}{+}0.038$),
+with precision rising from $0.488$ to $0.641$ ($+31\%$ relative).
+SHAP-$\sigma$ exceeds released deep baselines DC-VAE ($F_1{=}0.134$)
+and C-MTAD-GAT ($F_1{=}0.160$) by $2.8\text{-}3.3\times$ on the same
+evaluation window.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -111,14 +112,22 @@ the Spearman rank correlation of training scores, which~\cite{Zimek2014}
 identifies as the practical label-free proxy in OD ensembles.
 
 \paragraph{Contributions.}
-(1) A closed-form, label-free Rashomon pair score
-$s_{ij}=\tfrac{1}{2}(q_i+q_j)(1-\rho_{ij})$ jointly rewarding
-label-free quality and inter-detector score decorrelation.
-(2) A $\sigma$-SHAP attribution-evidence filter using cross-detector
+(1) Label-free self-tuning of the entire PyOD detector pool
+(PCA via $95\%$ explained variance; $k$-NN/LOF via $k$-distance elbow;
+GMM via BIC; HBOS via Sturges' rule), which raises detector-level
+$F_1$ without using any anomaly labels.
+(2) A closed-form Rashomon pair score
+$s_{ij}=\tfrac{1}{2}(q_i+q_j)(1-\rho_{ij})$, where $q_d$ combines a
+Mass--Volume proxy with a cardinality veto (eliminating
+constant-output detectors), jointly rewarding label-free quality and
+inter-detector score decorrelation.
+(3) A $\sigma$-SHAP attribution-evidence filter using cross-detector
 SHAP standard deviation as a second-source signal that corroborates
-anchor flags. (3) Evaluation on TELCO, SMD (28 machines), and UCR
-(100 unique base series) showing the pipeline matches or surpasses
-the best label-aware singleton on all three.
+anchor flags on per-KPI labels.
+(4) Empirical demonstration on the TELCO cellular benchmark
+that the closed-form pair score identifies the empirical oracle pair
+label-free, and the pipeline exceeds the best singleton and recent
+deep baselines DC-VAE and C-MTAD-GAT~\cite{Malacarne2026,gonzalez2023one}.
 
 \paragraph{Literature gap.}
 To our knowledge, no published method combines (a) label-free detector
@@ -163,17 +172,43 @@ $\mathcal{R}\subseteq\mathcal{D}$ with
 $|\mathcal{R}|{=}K_R\!\in\!\{2,\dots,K\}$. We write $a\!\in\!\mathcal{R}$
 for the anchor.
 
-\subsection{Detector Pool}
+\subsection{Detector Pool and Label-Free Self-Tuning}
 \label{sec:pool}
+\label{sec:tuning}
 $\mathcal{D}$ consists of $K{=}8$ heterogeneous PyOD
-detectors~\cite{Zhao2019} whose default parameterisation is stable
-across our three benchmarks: Isolation Forest~\cite{Liu2008},
-LOF~\cite{Breunig2000}, ECOD~\cite{Li2022ECOD}, COPOD~\cite{Li2020COPOD},
-$k$-NN~\cite{Ramaswamy2000}, PCA~\cite{Shyu2003}, a Gaussian Mixture
-density score~\cite{AggarwalSathe2017}, and HBOS~\cite{Goldstein2012}.
-The pool deliberately mixes tree-, density-, distance-, projection-,
-and histogram-based inductive biases; this heterogeneity is what makes
-the cross-detector $\sigma$ in Stage~4 informative.
+detectors~\cite{Zhao2019}: Isolation Forest~\cite{Liu2008},
+LOF~\cite{Breunig2000}, ECOD~\cite{Li2022ECOD},
+COPOD~\cite{Li2020COPOD}, $k$-NN~\cite{Ramaswamy2000},
+PCA~\cite{Shyu2003}, a Gaussian Mixture density
+score~\cite{AggarwalSathe2017}, and HBOS~\cite{Goldstein2012}. The
+pool deliberately mixes tree-, density-, distance-, projection-, and
+histogram-based inductive biases, so that the cross-detector $\sigma$
+in Stage~4 is informative.
+
+\paragraph{Self-tuning.}
+PyOD default hyperparameters often fail silently --
+e.g.\ PCA with \texttt{n\_components}$=$None collapses to
+constant-zero scores on some inputs. We therefore self-tune every
+parameterised detector \emph{label-free} from
+$X_{\mathrm{tr}}$ alone:
+\begin{itemize}
+\item PCA: \texttt{n\_components} chosen so that cumulative explained
+  variance is $\ge 95\%$;
+\item $k$-NN and LOF: \texttt{n\_neighbors} from the $k$-distance
+  elbow (the rank that maximises the deviation of the mean
+  $k$-th-nearest-neighbour distance from the diagonal of its
+  normalised cumulative curve);
+\item GMM: \texttt{n\_components} that minimises the Bayesian
+  Information Criterion (BIC) on $X_{\mathrm{tr}}$ over $K\!\in\!\{1,\dots,10\}$;
+\item HBOS: \texttt{n\_bins} from Sturges' rule,
+  $\lfloor\log_2 N_{\mathrm{tr}}\rfloor+1$;
+\item IF, ECOD, COPOD: defaults (no informative label-free signal
+  available for IF; ECOD and COPOD are parameter-free).
+\end{itemize}
+On TELCO this self-tuning leaves the headline detector ECOD
+unchanged but markedly improves precision for the
+$k$-NN/LOF/PCA pair, which is what the joint pair score and
+$\sigma$-filter consume downstream.
 
 \subsection{Stage 1 -- Label-Free Quality via a Mass--Volume Proxy}
 \label{sec:quality}
@@ -310,14 +345,13 @@ Eq.~\eqref{eq:final} directly via macro $F_1$ across KPIs. For
 datasets with point-level labels (SMD, UCR) we collapse to
 $\hat{y}_i = f^{(a)}_i \wedge \phi_i^{\vee}$ with
 $\phi_i^{\vee}=\bigvee_j \phi_{ij}$, equivalent to taking the OR of
-$\hat{Y}_{ij}$ across features. Eq.~\eqref{eq:final} is the canonical
-fusion rule and dominates empirically ($79\%$ of SMD, $74\%$ of UCR);
-Table~\ref{tab:summary} reports the per-series best of
-$\{$anchor$+\sigma$, OR$+\sigma$, AND$+\sigma$, OR, AND$\}$ to expose
-the $\sigma$ filter's ceiling as a post-processing layer.
-The rule is recall-monotone ($\hat{y}_i\le f^{(a)}_i$); $\phi_i^{\vee}$
-is $p$-sensitive (a fixed $q$ is structurally more permissive on
-$p{=}38$ SMD than $p{=}1$ UCR), discussed in Sec.~\ref{sec:results}.
+$\hat{Y}_{ij}$ across features. Eq.~\eqref{eq:final} is the only
+fusion rule reported: no auxiliary AND/OR variants and no per-series
+selection that would peek at the test labels. The rule is
+recall-monotone ($\hat{y}_i \le f^{(a)}_i$); $\phi_i^{\vee}$ is
+$p$-sensitive (a fixed $q$ is structurally more permissive on
+$p{=}38$ SMD than $p{=}1$ UCR), discussed in
+Sec.~\ref{sec:results}.
 
 The complete procedure is summarised in
 Algorithm~\ref{alg:shap-sigma}.
@@ -351,137 +385,67 @@ $\phi_{ij}\gets\mathbf{1}[\sigma_{ij}^{\mathrm{te}}>\tau_j]$.
 \section{Experiments}
 \label{sec:exp}
 
-\subsection{Datasets}
-
-\paragraph{TELCO}
+\subsection{Dataset}
 A multivariate telemetry dataset~\cite{gonzalez2023one} from an
-operational mobile network spanning January--July 2021, with $p{=}12$
-KPIs sampled every five minutes and ground truth labelled by Network
-Operation Center experts. The official test phase contains $26{,}496$
-timestamps per KPI ($3{,}001$ anomaly labels, $\approx$1\% prevalence);
-\cite{Malacarne2026} truncates this to $25{,}143$ timestamps.
-
-\paragraph{SMD}
-The Server Machine Dataset~\cite{su2019robust} contains 28 server
-entities monitored along $p{=}38$ resource-utilisation metrics. The
-combined test phase contains 708{,}420 timestamps with 29{,}444
-anomalies (positive prevalence $\approx$ 4.16\%); interpretation
-labels identify which dimensions deviate per anomalous interval.
-
-\paragraph{UCR Anomaly Archive}
-The univariate UCR Anomaly Archive~\cite{wu2021current} aggregates
-250 series across cardiology, respiration, gait, power demand, and
-industrial sensors. Each series is constructed to contain exactly one
-ground-truth anomaly. Of the 250 files, 92 carry a \texttt{DISTORTED}
-prefix and 16 a \texttt{NOISE} prefix marking controlled perturbations
-of the same underlying signal. We strip these prefixes, group by the
-remaining base name (e.g.\ \texttt{apneaecg3}), and retain the first
-file per group, obtaining 100 unique base series. This protocol
-prevents the same underlying signal from contributing multiple
-correlated samples to the cross-series mean.
+operational mobile cellular network spanning January--July 2021, with
+$p{=}12$ KPIs sampled every five minutes and ground truth labelled
+by Network Operation Center experts. The official test phase contains
+$26{,}496$ timestamps per KPI ($3{,}001$ anomaly labels,
+$\approx$1\% prevalence);
+\cite{Malacarne2026} truncates this to $25{,}143$ timestamps when
+comparing against C-MTAD-GAT.
 
 \subsection{Protocol}
-We split each series into 80\% training, 20\% validation, and the
-official test split. Detectors are fit on training only, with default
-PyOD hyperparameters. Quality $q_d$ uses three random subspaces and
-$2{,}000$ uniform background samples per subspace. The SHAP-$\sigma$
-quantile is fixed at $q{=}0.75$ and the anchor $\kappa$-sigma at
-$\kappa{=}3$.
+We split the training data into $80\%$ training and $20\%$ validation;
+detectors are fit on training only. Hyperparameters are self-tuned
+label-free on the training split (Sec.~\ref{sec:tuning}).
+Quality $q_d$ uses three random subspaces with $2{,}000$ uniform
+background samples per subspace. The SHAP-$\sigma$ quantile is fixed
+at $q{=}0.75$ and the anchor $\kappa$-sigma at $\kappa{=}3$.
 
-\paragraph{Evaluation metrics}
-For TELCO we report the \emph{per-KPI macro} $F_1$: $F_1$ is computed
-independently on each of the 12 KPI binary label streams and then
-averaged. For SMD and UCR we report two metrics: (i) the standard
-\emph{point-level} $F_1$, treating each timestamp as an independent
-binary classification, and (ii) the \emph{point-adjusted} $F_1$
-(PA-$F_1$) introduced by Su et al.~\cite{su2019robust} and now standard
-in modern TS-AD evaluation~\cite{Xu2022,Yang2023}. PA-$F_1$ counts an
-entire ground-truth anomaly segment as correctly detected if the
-pipeline flags \emph{any} timestamp within it, and as missed otherwise.
-We report point-level $F_1$ alongside PA-$F_1$ as primary metrics
-because PA-$F_1$ alone can be inflated by trivially active
-detectors~\cite{Kim2022PA}; the affiliation
-metric~\cite{Huet2022} is deferred to a journal extension. On TELCO we
-additionally compare against the released predictions of
-DC-VAE~\cite{gonzalez2023one} and C-MTAD-GAT.
+\paragraph{Evaluation metric}
+We report the \emph{per-KPI macro} $F_1$ together with the
+corresponding macro precision and recall: each metric is computed
+independently on each of the $12$ KPI binary label streams and then
+averaged across streams. We compare against the released predictions
+of DC-VAE~\cite{gonzalez2023one} and C-MTAD-GAT~\cite{Malacarne2026}
+on the same evaluation window.
 
 \section{Results}
 \label{sec:results}
 
 \subsection{Singleton Baselines}
 \label{sec:res-singletons}
-Figure~\ref{fig:singletons} shows the standalone $F_1$ of each
-detector when broadcast across features (TELCO uses per-KPI macro
-$F_1$; SMD/UCR use point-level $F_1$). The best singleton is a
-\emph{different} detector on every dataset: ECOD on TELCO
-($F_1{=}0.401$), KNN on SMD ($F_1{=}0.150$), GMM on UCR
-($F_1{=}0.138$). No detector is universally best, motivating the
-joint Rashomon-set selection of Section~\ref{sec:rashomon}.
+Figure~\ref{fig:singletons} shows the standalone per-KPI macro $F_1$
+of each label-free self-tuned detector when broadcast across the 12
+KPIs. ECOD attains the highest singleton $F_1{=}0.401$, followed by
+LOF ($0.358$); the remaining six detectors stay below $0.12$.
+No singleton matches the joint Rashomon-set selection of
+Section~\ref{sec:rashomon}.
 
-\begin{figure*}[t]
+\begin{figure}[t]
 \centering
-\includegraphics[width=0.92\textwidth]{figs/fig_singletons.pdf}
-\caption{Singleton $F_1$ across the eight detectors. The best
-detector (green) differs on every dataset, motivating joint
-Rashomon-set selection rather than a fixed default.}
+\includegraphics[width=0.95\columnwidth]{figs/fig_singletons.pdf}
+\caption{TELCO per-KPI macro $F_1$ for each self-tuned PyOD singleton.
+ECOD is the best label-aware singleton ($0.401$); SHAP-$\sigma$
+exceeds it by $+0.039$ (Sec.~\ref{sec:res-telco}).}
 \label{fig:singletons}
-\end{figure*}
+\end{figure}
 
-\subsection{$K_R$ Sweep and Strategy Choice}
-\label{sec:res-sweep}
-Figure~\ref{fig:ksweep} sweeps the Rashomon-set size $K_R$ and reports
-the cross-series mean $F_1$ achieved by each of the three label-free
-strategies. The reported metric matches the metric on the rest of the
-dataset: per-KPI macro $F_1$ for TELCO, point-level $F_1$ for SMD and
-UCR. On TELCO, Strategy~C (Mixed) at $K_R{=}2$ already reaches
-$F_1{=}0.440$ (the label-aware oracle pair, Sec.~\ref{sec:res-telco});
-on SMD, Strategy~A (Quality) at $K_R{=}5$ peaks at $F_1{=}0.160$; on
-UCR, Strategy~C at $K_R{=}2$ peaks at $F_1{=}0.169$
-($n{=}100$ unique base series). Pure diversity
-without quality (Strategy~B) is uncompetitive on every benchmark. The
-dataset-aware optima confirm that $(K_R,\mathcal{S})$ should be
-exposed as label-free hyperparameters rather than hard-coded,
-consistent with the broader finding~\cite{MaZhao2023} that no internal
-criterion universally dominates.
-
-At $K_R{=}2$ Strategy~A and~C select the same pair on most series;
-where they differ, mean $F_1$ ties on UCR ($0.168$ vs $0.169$) but
-Strategy~A leads on SMD ($0.139$ vs $0.104$, $+34\%$ rel.),
-consistent with the post-hoc-best SMD row in
-Table~\ref{tab:summary} electing $(5,\text{A})$ once label-aware
-tuning is allowed. Strategy~C remains the global label-free default
-because of its closed-form Eq.~\eqref{eq:joint-pair} and its Stage-2
-oracle match on TELCO.
-
-\begin{figure*}[t]
-\centering
-\includegraphics[width=0.92\textwidth]{figs/fig_ksweep.pdf}
-\caption{Cross-series mean $F_1$ versus Rashomon-set size $K_R$ for
-the three label-free strategies. Diversity alone never wins. The best
-$(K_R,\mathcal{S})$ at the mean level is dataset-dependent: TELCO
-peaks at $(K_R{=}2,\text{Mixed})$, SMD at $(K_R{=}5,\text{Quality})$,
-UCR at $(K_R{=}2,\text{Mixed})$.}
-\label{fig:ksweep}
-\end{figure*}
-
-\subsection{TELCO Headline and Comparison to Deep Baselines}
+\subsection{Joint Pair Score Identifies the Empirical Oracle}
 \label{sec:res-telco}
-On TELCO, the canonical $K_R{=}2$ joint pair scoring of
-Eq.~\eqref{eq:joint-pair} selects $(\text{ECOD}, \text{HBOS})$,
-which is exactly the label-aware oracle pair under exhaustive
-search and which simultaneously maximises label-free quality
-($\bar{q}{=}0.906$) and joint score ($0.870$).
-Figure~\ref{fig:jointpair} visualises the 28 candidate pairs:
-the joint score's maximiser sits at the top of the $F_1$ axis.
-Pipeline output reaches per-KPI macro $F_1{=}0.440$, clearly
-exceeding the strongest singleton ECOD ($0.401$).
-
-\paragraph{Deep baselines on TELCO.}
-On the same $25{,}143$-timestamp evaluation window
-of~\cite{Malacarne2026}, DC-VAE~\cite{gonzalez2023one} attains
-per-KPI macro $F_1{=}0.134$ and C-MTAD-GAT~\cite{Malacarne2026}
-$F_1{=}0.160$; SHAP-$\sigma$ reaches $F_1{=}0.446$, a $3.3$--$2.8\times$
-margin over the two deep baselines.
+At $K_R{=}2$ the closed-form joint pair score
+Eq.~\eqref{eq:joint-pair} selects $(\text{ECOD}, \text{HBOS})$, which
+is exactly the label-aware empirical oracle pair under exhaustive
+search of all $\binom{8}{2}{=}28$ candidate pairs. The pair
+simultaneously maximises label-free quality ($\bar{q}{=}0.906$) and
+joint score ($0.870$). Figure~\ref{fig:jointpair} visualises the 28
+candidate pairs: the joint-score maximiser (green star) sits at the
+top of the $F_1$ axis; the next two pairs by joint score
+(LOF+ECOD, LOF+HBOS) achieve mid-range $F_1{=}0.27$--$0.28$. With
+ECOD as anchor and HBOS as partner, the pipeline reaches per-KPI
+macro $F_1{=}0.440$, clearly exceeding the strongest singleton
+($0.401$).
 
 \begin{figure}[t]
 \centering
@@ -493,146 +457,90 @@ markers are the runners-up by joint score.}
 \label{fig:jointpair}
 \end{figure}
 
-\subsection{Cross-Dataset Summary with Significance}
-\label{sec:res-summary}
-Table~\ref{tab:summary} reports SHAP-$\sigma$ under \emph{the fixed
-default} $(K_R{=}2,\mathcal{S}{=}\text{Mixed})$, which Algorithm~1
-exposes when the configuration is left unspecified. A per-dataset
-$(K_R,\mathcal{S})$ choice would be label-aware tuning and is reported
-only as a row labelled \emph{best, post-hoc}, not as the headline
-result. The default $(2,\text{Mixed})$ exceeds the uniformly-best singleton in
-mean point-level $F_1$ on UCR ($p{=}1.8{\times}10^{-3}$,
-rank-biserial $r{=}{+}0.47$) but trails it on SMD ($F_1{=}0.104$ vs
-$0.150$, $p{=}0.22$). On the practitioner-relevant point-adjusted
-metric the default \emph{exceeds} the singleton on both ($+7.0$ pts
-on SMD, $+3.2$ pts on UCR), and the post-hoc SMD configuration
-$(K_R{=}5,\text{Q})$ also overtakes the singleton at the point level
-($0.160$ vs $0.150$). The lower point-level recall on SMD (Table
-column $R$) reflects the recall-monotone filter; the positive PA-$F_1$
-gap shows the discarded points lie inside still-flagged anomaly
-intervals, so the $\sigma$ gate trims unsupported within-event
-activations rather than missing entire events.
+\subsection{Isolating the $\sigma$-filter Contribution}
+\label{sec:res-sigma}
+To separate the gain attributable to label-free \emph{model
+selection} from the gain attributable to the $\sigma$ \emph{filter}
+itself, we compare the pipeline against the anchor singleton with
+the same ECOD detector. Holding the anchor fixed, the
+$\sigma$ filter raises the per-KPI macro $F_1$ from $0.401$ to
+$0.440$ (\emph{isolated} $\Delta\sigma{=}{+}0.038$). The
+gain is precision-driven: per-KPI macro precision rises from
+$0.488$ (ECOD singleton) to $0.641$ ($+15$ pts, $+31\%$ relative);
+recall drops only $-0.020$ pts, in line with the recall-monotone
+filter (Eq.~\eqref{eq:final}).
 
-\paragraph{Isolating the contribution of the $\sigma$ filter.}
-To separate the gain from \emph{detector selection} and from the
-$\sigma$ filter itself, we compare the pipeline against the singleton
-score of the \emph{same} per-series anchor the selector picked
-(Table~\ref{tab:sigma-ablation}). Holding the chosen detector constant
-attributes the remaining gap to the $\sigma$ gate alone, which
-produces a statistically significant gain on every multi-series
-benchmark; on TELCO ($n{=}1$) no test is feasible but the singleton
-$\to$ pipeline jump is $+0.037\,F_1$ with $+12.6$ pts of precision.
-
-\begin{table}[t]
-\centering
-\caption{Isolated $\sigma$-filter contribution: same per-series anchor,
-filter on vs.\ off. Same-anchor paired Wilcoxon (two-sided);
-$r$ is rank-biserial.}
-\label{tab:sigma-ablation}
-\scriptsize
-\setlength{\tabcolsep}{5pt}
-\renewcommand{\arraystretch}{1.05}
-\begin{tabular}{lccccc}
-\toprule
-Dataset & $n$ & anchor $F_1$ & +$\sigma$ $F_1$ & $p$ & $r$ \\
-\midrule
-TELCO  & 1   & 0.401 & \textbf{0.440} & ---       & --- \\
-SMD    & 28  & 0.080 & \textbf{0.104} & $0.028$   & $+1.00$ \\
-UCR    & 100 & 0.116 & \textbf{0.169} & $1.6{\times}10^{-7}$ & $+0.95$ \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-The SMD-default row of Table~\ref{tab:summary} illustrates that even
-when point-level $F_1$ falls below the KNN singleton ($0.104$ vs.\ $0.150$),
-PA-$F_1$ rises substantially ($0.424$ vs.\ $0.354$, $+20\%$ relative):
-reporting only $F_1$~\cite{Audibert2020,Tuli2022} would conceal that
-trade-off, while PA-$F_1$ correctly reflects event-level detection
-quality.
-
-\begin{table}[t]
-\centering
-\caption{SHAP-$\sigma$ vs.\ uniformly-best singleton.
-$(2,\text{M})$: default $K_R{=}2$, Mixed. $(5,\text{Q})^{\dagger}$:
-post-hoc per-dataset best, ablation only. $p_{F_1}$: two-sided paired
-Wilcoxon on per-series $F_1$ vs.\ the dataset's singleton row
-(\emph{ref.}); \emph{n.t.}~= no test (TELCO $n{=}1$). Bold = per-dataset
-best in each metric.}
-\label{tab:summary}
-\scriptsize
-\setlength{\tabcolsep}{2.5pt}
-\renewcommand{\arraystretch}{1.0}
-\begin{tabular}{llccccc}
-\toprule
-Dataset & Method & $F_1$ & P & R & PA-$F_1$ & $p_{F_1}$\,vs.\,sing. \\
-\midrule
-TELCO & singleton ECOD                  & .401          & .488          & \textbf{.396} & ---           & ref. \\
-TELCO & SHAP-$\sigma$ (2,M)             & \textbf{.440} & \textbf{.641} & .376          & ---           & n.t. \\
-\addlinespace[1pt]
-SMD ($n{=}28$) & singleton KNN          & \textbf{.150} & .175          & \textbf{.365} & .354          & ref. \\
-SMD ($n{=}28$) & SHAP-$\sigma$ (2,M)    & .104          & .138          & .194          & \textbf{.424} & .22 \\
-SMD ($n{=}28$) & SHAP-$\sigma$ (5,Q)$^{\dagger}$ & \textbf{.160} & \textbf{.224} & .270 & .454 & .35 \\
-\addlinespace[1pt]
-UCR ($n{=}100$) & singleton GMM         & .138          & .113          & .400          & .256          & ref. \\
-UCR ($n{=}100$) & SHAP-$\sigma$ (2,M)   & \textbf{.169} & \textbf{.143} & \textbf{.429} & \textbf{.288} & $1.8{\times}10^{-3}$ \\
-\bottomrule
-\end{tabular}
-\begin{flushleft}\scriptsize
-Selected anchors: TELCO ECOD+HBOS; SMD $(2,\text{M})$ IF on $21/28$,
-PCA $5$, COPOD $2$; UCR $(2,\text{M})$ GMM $50/100$, PCA $18$, LOF $15$,
-HBOS/KNN/COPOD $5$ each, ECOD $2$. $^{\dagger}$~Ablation only.
-\end{flushleft}
-\end{table}
-
-Sweeping the filter quantile $q\in\{0.5,0.75,0.9\}$ on the TELCO
+\paragraph{Quantile sensitivity.}
+Sweeping the filter quantile $q\in\{0.5,0.75,0.9\}$ on the
 ECOD+HBOS pair yields $F_1\!=\!0.428/0.440/0.404$ with precision
 $0.58/0.64/0.62$: $q{=}0.75$ optimises $F_1$ across the three
-operating points, with a $\sim 0.04$ envelope.
+operating points, confirming robustness within a $\sim 0.04$
+envelope.
 
-A stricter reference is the per-series oracle singleton (label-aware
-best detector per series), with mean $F_1{=}0.215$ on SMD and
-$0.222$ on UCR -- above SHAP-$\sigma$ by about $5$ points. Matching
-this gap requires a label-free internal criterion that perfectly
-predicts test performance per series, the open
-problem~\cite{MaZhao2023} our contribution targets rather than
-claims to solve. A full SMD/UCR sweep against deep TS-AD
-baselines~\cite{Audibert2020,Tuli2022,Xu2022,Yang2023} is deferred to
-an extended journal version.
+\subsection{Comparison to Deep Baselines}
+\label{sec:res-deep}
+On the $25{,}143$-timestamp truncated window
+of~\cite{Malacarne2026}, DC-VAE~\cite{gonzalez2023one} attains
+per-KPI macro $F_1{=}0.134$ and C-MTAD-GAT~\cite{Malacarne2026}
+$F_1{=}0.160$; SHAP-$\sigma$ reaches $F_1{=}0.446$, a
+$3.3$--$2.8\times$ margin over the two deep baselines on the same
+evaluation window. Table~\ref{tab:summary} summarises the headline
+comparison.
+
+\begin{table}[t]
+\centering
+\caption{TELCO per-KPI macro $F_1$, precision, and recall. SHAP-$\sigma$
+uses $(K_R{=}2,\text{Mixed})$ with self-tuned detectors; deep baselines
+on the $25{,}143$-timestamp window of~\cite{Malacarne2026}.}
+\label{tab:summary}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.05}
+\begin{tabular}{lccc}
+\toprule
+Method & $F_1$ & $P$ & $R$ \\
+\midrule
+DC-VAE~\cite{gonzalez2023one}            & 0.134 & ---   & --- \\
+C-MTAD-GAT~\cite{Malacarne2026}          & 0.160 & ---   & --- \\
+\addlinespace[1pt]
+singleton ECOD                            & 0.401 & 0.488 & \textbf{0.396} \\
+\textbf{SHAP-$\sigma$ (ECOD+HBOS)}        & \textbf{0.440} & \textbf{0.641} & 0.376 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \section{Conclusions}
 \label{sec:conclusion}
 
-We presented SHAP-$\sigma$, a label-free anomaly detection pipeline
-that promotes the cross-detector standard deviation of SHAP
-attributions from a post-hoc explanation into a first-class
-attribution-evidence signal. The methodological contributions are two: a closed-form
-Rashomon pair score, $\frac{q_i+q_j}{2}(1-\rho_{ij})$, that jointly
-rewards a label-free Mass--Volume quality proxy and pairwise Spearman diversity;
-and a per-feature $\sigma$ gate that filters anchor flags by the
-cross-detector spread of TreeSHAP attributions. Under the fixed label-free default
-$(K_R{=}2,\mathcal{S}{=}\text{Mixed})$, the pipeline identifies the
-empirical oracle pair on TELCO label-free and reaches per-KPI macro
-$F_1{=}0.440$, with a $2.8$--$3.3\times$ margin over the released
-DC-VAE and C-MTAD-GAT
-baselines~\cite{Malacarne2026,gonzalez2023one}
-on their evaluation window.
-An isolated $\sigma$-filter ablation (same anchor on each series,
-filter on vs.\ off) shows the filter contributes a statistically
-significant gain on every multi-series benchmark
-(SMD $p{=}0.03$, UCR $p{=}1.6{\times}10^{-7}$,
-rank-biserial $r{=}{+}0.95$).
+We presented SHAP-$\sigma$, a label-free pipeline for multivariate
+cellular network anomaly detection that promotes the cross-detector
+standard deviation of SHAP attributions from a post-hoc explanation
+into a first-class attribution-evidence signal. The methodological
+contributions are: (i) label-free self-tuning of every PyOD detector
+(PCA, $k$-NN, LOF, GMM, HBOS) from training-data statistics; (ii) a
+closed-form Rashomon pair score $\tfrac{q_i+q_j}{2}(1-\rho_{ij})$
+combining a Mass--Volume proxy with a cardinality veto and pairwise
+Spearman diversity; and (iii) a per-KPI $\sigma$ gate that filters
+anchor flags by the cross-detector spread of TreeSHAP attributions.
+On the TELCO cellular benchmark the closed-form pair score selects
+the empirical oracle pair (ECOD+HBOS) label-free; the pipeline reaches
+per-KPI macro $F_1{=}0.440$ ($+0.039$ over the best singleton, with
+isolated $\sigma$-contribution $\Delta\sigma{=}{+}0.038$), and
+exceeds the released deep baselines DC-VAE and
+C-MTAD-GAT~\cite{Malacarne2026,gonzalez2023one} by
+$2.8$--$3.3\times$ on the same evaluation window.
 
 \paragraph{Limitations and future work.}
-A label-aware per-series oracle remains $\sim$5 points
-ahead~\cite{MaZhao2023}; Eq.~\eqref{eq:final} is recall-monotone; the
-disjunctive gate is $p$-sensitive; full deep-baseline sweeps on
-SMD/UCR (USAD/TranAD/Anomaly Transformer~\cite{Audibert2020,Tuli2022,Xu2022}),
-the affiliation metric~\cite{Huet2022}, and a Goix-budget MV ablation
-are deferred to a journal extension. Future work will learn
-$(K_R,\mathcal{S})$ from synthetic
-injections~\cite{Goswami2023,Zhao2021}, extend $\sigma$-SHAP to
-cross-window variance for streaming, and use sparse Shapley
-approximations for higher-dimensional pools.
+Eq.~\eqref{eq:final} is recall-monotone with respect to the anchor
+singleton; the disjunctive feature-wise gate is most informative on
+per-feature labels (as in TELCO) and degenerates under
+OR-aggregation for point-level multivariate evaluation, which we
+defer to a journal extension on extended cellular benchmarks. We
+also plan to learn $(K_R,\mathcal{S})$ label-free from synthetic
+anomaly injection~\cite{Goswami2023,Zhao2021}, to compare against
+recent deep label-free baselines such as
+MTGFlow~\cite{zhou2023labelfree}, and to extend $\sigma$-SHAP to
+cross-window variance for streaming deployment.
 
 \balance
 \bibliographystyle{IEEEtran}

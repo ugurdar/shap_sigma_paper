@@ -58,47 +58,40 @@ MARK = {"Quality": "o", "Diversity": "s", "Mixed": "D"}
 # ============== Fig 1: Singletons ==============
 
 def fig_singletons():
+    """TELCO-only singleton bar chart."""
     sing = pd.read_csv(os.path.join(RES, "singletons_cross_dataset.csv"))
     DETS = ["ECOD", "LOF", "GMM", "KNN", "COPOD", "IF", "PCA", "HBOS"]
-    fig, axes = plt.subplots(1, 3, figsize=(7.0, 1.95),
-                             gridspec_kw=dict(wspace=0.30, top=0.78, bottom=0.30,
-                                              left=0.07, right=0.99))
-    for i, ds in enumerate(["TELCO", "SMD", "UCR"]):
-        ax = axes[i]
-        sub = sing[sing["dataset"] == ds]
-        col = "F1_per_KPI_macro" if ds == "TELCO" else "F1_point_level"
-        g = sub.groupby("detector")[col].mean().reindex(DETS)
-        best_det = g.idxmax()
-        colors = [COL["best"] if d == best_det else COL["neutral"] for d in DETS]
-        ax.bar(range(len(DETS)), g.values, color=colors,
-               edgecolor="black", linewidth=0.5, zorder=3, width=0.7)
-        best_idx = DETS.index(best_det)
-        ax.text(best_idx, g[best_det] + g.max() * 0.04, f"{g[best_det]:.3f}",
-                ha="center", va="bottom", fontsize=7, fontweight="bold",
-                color=COL["best"])
-        ax.set_xticks(range(len(DETS)))
-        ax.set_xticklabels(DETS, rotation=45, ha="right", fontsize=7)
-        if i == 0:
-            ax.set_ylabel("Singleton $F_1$")
-        n = sub["series"].nunique()
-        lab = "per-KPI macro" if ds == "TELCO" else "point-level"
-        ax.set_title(f"{ds} (n={n}, {lab})")
-        ax.set_axisbelow(True)
-        ax.tick_params(axis="x", which="both", bottom=False)
-        ax.tick_params(axis="y", direction="in", length=2.5, pad=2)
-        ax.set_ylim(0, g.max() * 1.20)
-        for sp in ["top", "right"]:
-            ax.spines[sp].set_linewidth(0.4)
 
-    legend_handles = [
-        plt.Rectangle((0, 0), 1, 1, color=COL["best"], ec="black", lw=0.5,
-                      label="Best singleton per dataset"),
-        plt.Rectangle((0, 0), 1, 1, color=COL["neutral"], ec="black", lw=0.5,
-                      label="Other detectors"),
-    ]
-    fig.legend(handles=legend_handles, loc="upper center", ncol=2,
-               bbox_to_anchor=(0.5, 1.00), frameon=False,
-               handletextpad=0.5, columnspacing=1.5)
+    fig, ax = plt.subplots(figsize=(3.4, 2.0),
+                            gridspec_kw=dict(top=0.92, bottom=0.30,
+                                              left=0.18, right=0.97))
+    sub = sing[sing["dataset"] == "TELCO"]
+    g = sub.groupby("detector")["F1_per_KPI_macro"].mean().reindex(DETS)
+    best_det = g.idxmax()
+    colors = [COL["best"] if d == best_det else COL["neutral"] for d in DETS]
+    ax.bar(range(len(DETS)), g.values, color=colors,
+            edgecolor="black", linewidth=0.5, zorder=3, width=0.7)
+
+    # SHAP-σ reference line at F1=0.440
+    ax.axhline(0.440, color="#D55E00", lw=1.0, ls="--", zorder=4,
+                label=r"SHAP-$\sigma$ ($K_R{=}2$)")
+    ax.text(len(DETS)-0.5, 0.445, "SHAP-$\\sigma$ 0.440", ha="right", va="bottom",
+            fontsize=7, color="#D55E00")
+
+    best_idx = DETS.index(best_det)
+    ax.text(best_idx, g[best_det] + 0.015, f"{g[best_det]:.3f}",
+            ha="center", va="bottom", fontsize=7, fontweight="bold",
+            color=COL["best"])
+    ax.set_xticks(range(len(DETS)))
+    ax.set_xticklabels(DETS, rotation=40, ha="right", fontsize=7)
+    ax.set_ylabel("Per-KPI macro $F_1$", fontsize=8)
+    ax.set_axisbelow(True)
+    ax.tick_params(axis="x", which="both", bottom=False)
+    ax.tick_params(axis="y", direction="in", length=2.5, pad=2)
+    ax.set_ylim(0, 0.50)
+    for sp in ["top", "right"]:
+        ax.spines[sp].set_linewidth(0.4)
+
     plt.savefig(os.path.join(OUT, "fig_singletons.pdf"))
     plt.savefig(os.path.join(OUT, "fig_singletons.png"), dpi=220)
     plt.close()

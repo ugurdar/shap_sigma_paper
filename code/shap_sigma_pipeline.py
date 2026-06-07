@@ -7,24 +7,26 @@ Reference: Dar, Malacarne, Cavus, Van den Abeele (2026).
 Single unified pipeline that reproduces the cross-dataset results reported in
 the paper across TELCO, SMD, and UCR. Identical detector pool, identical
 hyperparameters, three label-free selection strategies (Quality, Diversity,
-Mixed), five fusion variants. TELCO uses per-KPI macro F1 (12 KPI streams);
-SMD/UCR use point-level F1 and point-adjusted F1 (PA-F1).
+Mixed). The pipeline outputs the canonical anchor+sigma prediction (Eq. 5)
+only -- no per-series fusion-variant search, no peeking at y_test.
+TELCO uses per-KPI macro F1 (12 KPI streams); SMD/UCR use point-level F1
+and point-adjusted F1 (PA-F1).
 
-Stages (Sec. II of the paper):
+Stages (Sec. II of the paper, all label-free):
   1. Train 8 default PyOD detectors on training split.
-  2. Compute label-free Mass-Volume proxy quality q_d (Eq. 1 of paper).
-  3. Compute pairwise Spearman score correlation rho_{ij}.
-  4. For each K_R in {2,...,8} and strategy in {Quality, Diversity, Mixed},
-     select the K_R-tuple jointly over all C(K, K_R) subsets.
-     For K_R=2 with Strategy Mixed, Eq. 2 reduces to the closed-form
-     joint pair score (q_i+q_j)/2 * (1 - rho_{ij}).
-  5. Train LightGBM surrogate per selected detector, compute TreeSHAP,
-     normalize by detector validation std (Sec. II-D).
-  6. Compute cross-detector sigma matrix, per-feature 0.75-quantile
-     threshold tau_j on validation, OR aggregate test gate phi^v.
-  7. Anchor = highest-quality member; anchor k-sigma flag f_a.
-  8. Output: per-series best of five fusion variants
-     {anchor+sigma, OR+sigma, AND+sigma, AND, OR}.
+  2. Compute Mass-Volume proxy quality q_d (Eq. 1) from training scores
+     and uniform background samples (no test data).
+  3. Compute pairwise Spearman score correlation rho_{ij} on training.
+  4. For each (K_R, strategy), select the K_R-tuple jointly over all
+     C(K, K_R) subsets. For K_R=2 with Strategy Mixed, the rule reduces
+     to the closed-form joint pair score (q_i+q_j)/2 * (1 - rho_{ij}).
+  5. Train LightGBM surrogate per selected detector on (X_tr, s_d(X_tr)),
+     compute TreeSHAP on X_v and X_te, normalise by validation std.
+  6. Compute cross-detector sigma; per-feature 0.75-quantile threshold
+     tau_j on VALIDATION; test gate phi^v_i = OR_j 1[sigma_{ij}^te > tau_j].
+  7. Anchor = highest-quality member; anchor k-sigma flag f_a uses
+     validation mean and std (not test).
+  8. Output: y_hat_i = f_a_i AND phi^v_i (Eq. 5, anchor+sigma only).
 
 Output:
   results/standard_ksweep_all_datasets.csv  (one row per dataset x series x K x strategy)
@@ -301,68 +303,40 @@ def run_pipeline(members, q, X_tr, X_v, X_te, s_tr, s_v, s_te,
         phi[:, j] = (sig_t[:, j] > tau[j]).astype(int)
     phi_or = phi.max(axis=1)  # phi^v = OR over features
 
-    # Anchor and member flags
+    # Anchor flag (label-free: validation mean and std only)
     anchor = max(members, key=lambda d: q[d])
     f_a = kappa_sigma_flag(s_te[anchor], s_v[anchor])
-    f_or = np.zeros_like(f_a)
-    f_and = np.ones_like(f_a)
-    for d in members:
-        f_d = kappa_sigma_flag(s_te[d], s_v[d])
-        f_or = f_or | f_d
-        f_and = f_and & f_d
 
+    # Canonical anchor+sigma prediction (Eq. 5 of the paper).
+    # No best-of-5 search, no peeking at y_test for variant selection.
     if per_kpi:
-        # TELCO: per-KPI elementwise sigma filter. For each KPI j and point i,
-        # the per-KPI prediction is f_a[i] * phi[i,j] (Eq. 5 per-feature form).
-        # Macro F1 is averaged over the p label streams.
+        # TELCO: per-KPI elementwise. Y_{ij} = f_a[i] AND phi[i,j].
         K_KPI = y_test.shape[1]
-        # 2D prediction matrices: (N_te, K_KPI)
-        f_a_b   = np.repeat(f_a[:, None],   K_KPI, axis=1)
-        f_or_b  = np.repeat(f_or[:, None],  K_KPI, axis=1)
-        f_and_b = np.repeat(f_and[:, None], K_KPI, axis=1)
-        variants = {
-            "anchor+sigma": (f_a_b   * phi).astype(int),
-            "OR+sigma":     (f_or_b  * phi).astype(int),
-            "AND":          f_and_b.astype(int),
-            "OR":           f_or_b.astype(int),
-            "AND+sigma":    (f_and_b * phi).astype(int),
-        }
-        def macro(pred, fn):
-            return float(np.mean([fn(y_test[:, k], pred[:, k], zero_division=0)
-                                   for k in range(K_KPI)]))
-        f1s = {n: macro(p_, f1_score) for n, p_ in variants.items()}
-        best_var = max(f1s, key=f1s.get)
-        best_pred = variants[best_var]
-        return {
-            "F1":    round(f1s[best_var], 4),
-            "P":     round(macro(best_pred, precision_score), 4),
-            "R":     round(macro(best_pred, recall_score), 4),
-            "PA_F1": np.nan,
-            "best_variant": best_var,
-            "anchor": anchor,
-        }, shap_cache
+        f_a_b = np.repeat(f_a[:, None], K_KPI, axis=1)
+        pred = (f_a_b * phi).astype(int)
+        F1 = float(np.mean([f1_score(y_test[:, k], pred[:, k], zero_division=0)
+                            for k in range(K_KPI)]))
+        P  = float(np.mean([precision_score(y_test[:, k], pred[:, k], zero_division=0)
+                            for k in range(K_KPI)]))
+        R  = float(np.mean([recall_score(y_test[:, k], pred[:, k], zero_division=0)
+                            for k in range(K_KPI)]))
+        PA_F1 = np.nan
     else:
-        # SMD / UCR: point-level prediction with row-aggregate gate phi^v
-        # (Eq. 5: y_hat_i = f_a_i AND phi^v_i).
-        variants = {
-            "anchor+sigma": (f_a   * phi_or).astype(int),
-            "OR+sigma":     (f_or  * phi_or).astype(int),
-            "AND":          f_and.astype(int),
-            "OR":           f_or.astype(int),
-            "AND+sigma":    (f_and * phi_or).astype(int),
-        }
-        f1s = {n: f1_score(y_test, p_, zero_division=0) for n, p_ in variants.items()}
-        pas = {n: pa_f1_score(y_test, p_) for n, p_ in variants.items()}
-        best_var = max(f1s, key=f1s.get)
-        best_pred = variants[best_var]
-        return {
-            "F1":    round(f1s[best_var], 4),
-            "P":     round(precision_score(y_test, best_pred, zero_division=0), 4),
-            "R":     round(recall_score(y_test, best_pred, zero_division=0), 4),
-            "PA_F1": round(pas[best_var], 4),
-            "best_variant": best_var,
-            "anchor": anchor,
-        }, shap_cache
+        # SMD / UCR: point-level with row-aggregate gate phi^v.
+        # y_hat_i = f_a_i AND phi^v_i.
+        pred = (f_a * phi_or).astype(int)
+        F1   = f1_score(y_test, pred, zero_division=0)
+        P    = precision_score(y_test, pred, zero_division=0)
+        R    = recall_score(y_test, pred, zero_division=0)
+        PA_F1 = pa_f1_score(y_test, pred)
+
+    return {
+        "F1":    round(F1, 4),
+        "P":     round(P, 4),
+        "R":     round(R, 4),
+        "PA_F1": round(PA_F1, 4) if not np.isnan(PA_F1) else np.nan,
+        "anchor": anchor,
+    }, shap_cache
 
 
 # ============== Per-series driver ==============
@@ -430,7 +404,6 @@ def process_one(dataset, series, X_train, X_val, X_test, y_test, per_kpi=False):
                 "q_times_div": round(avg_q * avg_div, 3),
                 "F1": res["F1"], "P": res["P"], "R": res["R"],
                 "PA_F1": res["PA_F1"],
-                "best_variant": res["best_variant"],
             })
     return rows
 
