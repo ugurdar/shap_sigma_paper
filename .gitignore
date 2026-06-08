@@ -9,8 +9,9 @@ venv/
 data
 data/
 
-# Local logs
+# Local logs (anywhere)
 logs/
+*.log
 
 # LaTeX build artefacts
 paper/*.aux
