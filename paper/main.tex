@@ -44,9 +44,12 @@ rule selects a five-detector Rashomon set reaching per-KPI macro
 $F_1{=}0.460$, above the best self-tuned singleton ($0.419$) and well
 above the deep baselines DC-VAE ($0.134$~\cite{gonzalez2023one}) and
 C-MTAD-GAT ($0.160$~\cite{Malacarne2026}) reported under the same
-per-KPI aggregation. $F_1$ stays in the $0.45$--$0.46$ band for every
-set size $K_R\!\ge\!3$, so the result needs no label-based tuning,
-while the pipeline remains fully transparent and reproducible.
+per-KPI aggregation, and stays in the $0.45$--$0.46$ band for every set
+size $K_R\!\ge\!3$ (no label-based tuning). The gain over singletons
+stems chiefly from the label-free self-tuning and subset selection; the
+$\sigma$ gate matches a naive ensemble vote on $F_1$ but is more stable
+across seeds and, unlike a black-box vote, yields explicit per-KPI
+attribution evidence~--~a transparent, reproducible pipeline throughout.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -196,12 +199,12 @@ scores on some inputs. We therefore tune every parameterised detector
   Information Criterion (BIC) over $\{1,\dots,10\}$ components.
 \item \textbf{HBOS}: \texttt{n\_bins} from Sturges' rule,
   $\lfloor\log_2 N_{\mathrm{tr}}\rfloor+1$.
-\item \textbf{AutoEncoder}: bottleneck width inherits the tuned PCA
-  dimension; encoder--decoder are symmetric three-layer MLPs trained
-  for $20$ epochs with batch size $64$.
-\item \textbf{OCSVM}: RBF kernel with $\nu{=}0.05$ default;
-  \textbf{IF}: $100$ trees default; \textbf{ECOD, COPOD}:
-  parameter-free.
+\item \textbf{IF}: \texttt{n\_estimators} from a path-length-std
+  plateau (first grid point with $<2\%$ relative change).
+\item \textbf{AutoEncoder}: fixed $[64,32]$ encoder trained for $50$
+  epochs with batch size $64$.
+\item \textbf{OCSVM}: RBF kernel with $\nu{=}0.05$; \textbf{ECOD,
+  COPOD}: parameter-free.
 \end{itemize}
 Each detector exposes a single hyperparameter we tune; the choices
 are deterministic functions of $X_{\mathrm{tr}}$ and therefore use no
@@ -449,9 +452,9 @@ LOF         & \textbf{0.419} & 0.460          & \textbf{0.452} & $k=$ elbow \\
 ECOD        & 0.401          & \textbf{0.488} & 0.396          & param-free \\
 KNN         & 0.115          & 0.209          & 0.089          & $k=$ elbow \\
 GMM         & 0.112          & 0.478          & 0.066          & BIC \\
-AutoEncoder & 0.098          & 0.130          & 0.089          & bottleneck $=$ tuned PCA \\
+AutoEncoder & 0.098          & 0.130          & 0.089          & $[64,32]$, 50 ep \\
 OCSVM       & 0.092          & 0.105          & 0.099          & $\nu{=}0.05$ \\
-IF          & 0.058          & 0.047          & 0.092          & $100$ trees \\
+IF          & 0.058          & 0.047          & 0.092          & path-len.\ plateau \\
 COPOD       & 0.056          & 0.052          & 0.072          & param-free \\
 PCA         & 0.042          & 0.035          & 0.067          & $95\%$ var \\
 HBOS        & 0.033          & 0.349          & 0.017          & Sturges \\
@@ -616,6 +619,22 @@ self-tuned HBOS                           & 0.033           & 0.349           & 
 \end{tabular}
 \end{table}
 
+\subsection{Where the Gain Comes From}
+\label{sec:res-source}
+We attribute the improvement honestly. The bulk of it over the deep
+baselines comes from the label-free self-tuning and Rashomon-subset
+selection rather than from the $\sigma$ gate alone: a single self-tuned
+LOF already reaches $0.419$. In a controlled five-seed comparison at the
+operating set, the SHAP-$\sigma$ gate ($F_1{=}0.447{\pm}0.013$) is on
+par with a naive $k$-of-$K$ ensemble vote (vote$\ge2$:
+$0.437{\pm}0.030$) and does not significantly exceed it. Its advantage
+is therefore not raw $F_1$ but (i) \emph{stability}~--~about half the
+seed variance of voting, while vote$\ge3$ collapses to $0.10$~--~and
+(ii) \emph{interpretability}: unlike a black-box vote, the gate attaches
+an explicit per-KPI attribution to every surviving flag, identifying
+\emph{which} KPI the retained detectors agree on. The per-seed numbers
+are released with the code.
+
 \section{Conclusions}
 \label{sec:conclusion}
 
@@ -634,10 +653,13 @@ of TreeSHAP attributions.
 On the TELCO cellular benchmark a label-free variance-stability rule
 selects a five-detector Rashomon set (anchor LOF), reaching per-KPI
 macro $F_1{=}0.460$ (precision $0.597$, recall $0.418$), $+0.041$ over
-the best self-tuned singleton ($F_1{=}0.419$). $F_1$ stays in the
-$0.45$--$0.46$ band for every $K_R\!\ge\!3$ and is seed-stable
-($0.447{\pm}0.013$ over five seeds), so the headline is not the product
-of label-based size selection.
+the best self-tuned singleton ($F_1{=}0.419$); the result is seed-stable
+($0.447{\pm}0.013$) and needs no label-based size selection ($F_1$ holds
+across all $K_R\!\ge\!3$). We are explicit that this headline gain comes
+chiefly from the label-free self-tuning and subset selection: the
+$\sigma$ gate is statistically on par with a naive ensemble vote, and
+its contribution is not raw $F_1$ but seed-stability and~--~unlike a
+black-box vote~--~explicit per-KPI attribution evidence for every flag.
 Against the per-KPI macro $F_1$ those papers report, it exceeds the
 deep baselines DC-VAE and
 C-MTAD-GAT~\cite{Malacarne2026,gonzalez2023one} by $2.9$--$3.4\times$,
