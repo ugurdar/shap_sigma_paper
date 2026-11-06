@@ -109,4 +109,4 @@ and data pointers: <https://github.com/ugurdar/shap_sigma_paper>.
 
 ## Funding
 
-This work is supported by the *Rashomon-based Uncertainty-Aware Explainable AI for Time Series* project, funded by the European Union via grant OC4-2025-TES-02 issued and implemented by the ENFIELD project under grant agreement No.~101120657.
+This work is supported by the *Rashomon-based Uncertainty-Aware Explainable AI for Time Series* project, funded by the European Union via grant OC4-2025-TES-02 issued and implemented by the ENFIELD project under grant agreement No.101120657
