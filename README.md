@@ -106,3 +106,7 @@ and are produced by `5_fig_jointpair.py` and `6_fig_gate_variants.py`.
 
 If you use this code, please cite the SHAP-σ paper (see `paper/`). Code
 and data pointers: <https://github.com/ugurdar/shap_sigma_paper>.
+
+## Funding
+
+This work is supported by the *Rashomon-based Uncertainty-Aware Explainable AI for Time Series* project, funded by the European Union via grant OC4-2025-TES-02 issued and implemented by the ENFIELD project under grant agreement No.~101120657.
